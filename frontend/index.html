@@ -1,0 +1,3202 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
+  <title>SportOut</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            navy: {
+              950: '#000000',
+              900: '#0a0a0a',
+              800: '#111111',
+              700: '#1a1a1a',
+              600: '#222222',
+            },
+            teal: {
+              glow:  '#39FF14',
+              base:  '#2db30d',
+              muted: '#1a8009',
+              dim:   '#0d5200',
+            },
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+          boxShadow: {
+            'teal-glow':    '0 0 18px 3px rgba(57,255,20,0.35)',
+            'teal-glow-sm': '0 0 8px 1px rgba(57,255,20,0.25)',
+            'card':         '0 4px 24px rgba(0,0,0,0.55)',
+          },
+          backgroundImage: {
+            'card-glass': 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%)',
+            'nav-blur':   'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.97) 30%)',
+          },
+        },
+      },
+    }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    @keyframes pulse-teal {
+      0%, 100% { box-shadow: 0 0 6px 1px rgba(57,255,20,0.6); }
+      50%       { box-shadow: 0 0 14px 4px rgba(57,255,20,0.9); }
+    }
+    .live-dot { animation: pulse-teal 1.8s ease-in-out infinite; }
+
+    @keyframes glow-ring {
+      0%, 100% { box-shadow: 0 0 0 2px rgba(57,255,20,0.0); }
+      50%       { box-shadow: 0 0 0 3px rgba(57,255,20,0.4); }
+    }
+    .nav-active { animation: glow-ring 2.5s ease-in-out infinite; }
+
+    @keyframes court-ping {
+      0%   { transform: scale(1);   opacity: 0.8; }
+      70%  { transform: scale(2.2); opacity: 0;   }
+      100% { transform: scale(1);   opacity: 0;   }
+    }
+    .court-ping::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 9999px;
+      background: #39FF14;
+      animation: court-ping 1.8s cubic-bezier(0,0,0.2,1) infinite;
+    }
+
+    @keyframes toast-in {
+      from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+      to   { opacity: 1; transform: translateX(-50%) translateY(0);    }
+    }
+    @keyframes toast-out {
+      from { opacity: 1; transform: translateX(-50%) translateY(0);    }
+      to   { opacity: 0; transform: translateX(-50%) translateY(10px); }
+    }
+    .toast-enter { animation: toast-in  0.28s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+    .toast-exit  { animation: toast-out 0.22s ease-in forwards; }
+
+    @keyframes section-in {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0);   }
+    }
+    .section-enter { animation: section-in 0.2s ease-out forwards; }
+
+    body {
+      background-color: #000000;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    #feed-map, #courts-mini-map { position: absolute; inset: 0; z-index: 0; }
+
+    .leaflet-tooltip-sportout {
+      background: rgba(0,0,0,0.9);
+      border: 1px solid rgba(57,255,20,0.35);
+      color: #39FF14;
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 8px;
+      padding: 4px 8px;
+      box-shadow: 0 0 8px 1px rgba(57,255,20,0.25);
+      white-space: nowrap;
+    }
+    .leaflet-tooltip-sportout::before { border: none; }
+
+    #app-toast { bottom: 88px; }
+    @media (min-width: 1024px) { #app-toast { bottom: 24px; } }
+
+    /* iOS safe-area utilities */
+    .safe-pt     { padding-top: max(1.5rem, env(safe-area-inset-top)); }
+    .safe-pb-nav { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+    .safe-pb-main { padding-bottom: calc(5.5rem + env(safe-area-inset-bottom)); }
+
+    /* Player detail slide-in overlay */
+    #player-detail-overlay {
+      transform: translateX(100%);
+      transition: transform 0.3s ease-out;
+      will-change: transform;
+    }
+    #player-detail-overlay.pd-open {
+      transform: translateX(0);
+    }
+
+    /* Court detail slide-in overlay */
+    #court-detail-overlay {
+      transform: translateX(100%);
+      transition: transform 0.3s ease-out;
+      will-change: transform;
+    }
+    #court-detail-overlay.cd-open {
+      transform: translateX(0);
+    }
+
+    /* Match detail slide-in overlay */
+    #match-detail-overlay {
+      transform: translateX(100%);
+      transition: transform 0.3s ease-out;
+      will-change: transform;
+    }
+    #match-detail-overlay.md-open {
+      transform: translateX(0);
+    }
+
+    /* Create match slide-in overlay */
+    #create-match-overlay {
+      transform: translateX(100%);
+      transition: transform 0.3s ease-out;
+      will-change: transform;
+    }
+    #create-match-overlay.cm-open {
+      transform: translateX(0);
+    }
+
+    /* Form inputs in create-match overlay */
+    .cm-input {
+      width: 100%;
+      background: #1a1a1a;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 12px 16px;
+      color: white;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.15s;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+    .cm-input:focus { border-color: rgba(57,255,20,0.4); }
+    .cm-sport-btn {
+      flex: 1;
+      min-width: 0;
+      padding: 8px 4px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: #1a1a1a;
+      color: rgba(255,255,255,0.4);
+      cursor: pointer;
+      transition: all 0.15s;
+      text-align: center;
+    }
+    .cm-sport-btn.active {
+      background: rgba(57,255,20,0.15);
+      border-color: rgba(57,255,20,0.4);
+      color: #39FF14;
+    }
+    .cm-format-btn {
+      flex: 1;
+      padding: 10px 4px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 700;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: #1a1a1a;
+      color: rgba(255,255,255,0.4);
+      cursor: pointer;
+      transition: all 0.15s;
+      text-align: center;
+    }
+    .cm-format-btn.active {
+      background: rgba(57,255,20,0.15);
+      border-color: rgba(57,255,20,0.4);
+      color: #39FF14;
+    }
+
+    /* Fullscreen map modal */
+    #map-modal {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+    #map-modal.map-open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    #fullscreen-map {
+      flex: 1;
+      min-height: 0;
+      position: relative;
+    }
+
+    /* Sport filter chip states */
+    .sport-chip {
+      flex-shrink: 0;
+      padding: 6px 16px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 500;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: #111111;
+      color: rgba(255,255,255,0.4);
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .sport-chip.active {
+      background: rgba(57,255,20,0.15);
+      border-color: rgba(57,255,20,0.4);
+      color: #39FF14;
+      font-weight: 600;
+    }
+    .region-chip {
+      flex-shrink: 0;
+      padding: 5px 14px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 500;
+      border: 1px solid rgba(255,255,255,0.06);
+      background: #0d0d0d;
+      color: rgba(255,255,255,0.35);
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .region-chip.active {
+      background: rgba(57,255,20,0.10);
+      border-color: rgba(57,255,20,0.35);
+      color: #39FF14;
+      font-weight: 600;
+    }
+    .region-chip.following-active {
+      background: rgba(57,255,20,0.10);
+      border-color: rgba(57,255,20,0.35);
+      color: #39FF14;
+      font-weight: 600;
+    }
+
+    /* Highlight grid squares */
+    .highlight-sq {
+      aspect-ratio: 1;
+      border-radius: 6px;
+      background: #111111;
+      border: 1px solid rgba(255,255,255,0.05);
+      cursor: pointer;
+      overflow: hidden;
+      position: relative;
+      transition: border-color 0.15s;
+    }
+    .highlight-sq:hover { border-color: rgba(57,255,20,0.3); }
+    .highlight-sq:active { transform: scale(0.96); }
+  </style>
+</head>
+
+<body class="dark font-sans text-white min-h-[100dvh] bg-navy-950 overflow-x-hidden">
+
+  <!-- ═══════════════════════════════════════════════
+       DESKTOP SIDEBAR
+  ═══════════════════════════════════════════════ -->
+  <aside class="hidden lg:flex fixed inset-y-0 left-0 w-64 flex-col
+                bg-navy-900/95 border-r border-white/5 backdrop-blur-md z-50">
+
+    <div class="flex items-center gap-2 px-6 pt-8 pb-6">
+      <div class="w-8 h-8 rounded-xl bg-teal-base/20 border border-teal-glow/40
+                  flex items-center justify-center shadow-teal-glow-sm">
+        <span class="text-teal-glow font-extrabold text-sm leading-none tracking-tight">S</span>
+      </div>
+      <span class="text-white font-bold text-xl tracking-tight">SportOut</span>
+    </div>
+
+    <nav class="flex-1 px-3 flex flex-col gap-1">
+
+      <button data-tab="feed" onclick="navigateTo('feed')"
+              class="nav-sidebar-item flex items-center gap-3 w-full px-3 py-3 rounded-xl transition-all duration-200">
+        <div class="nav-icon-wrap w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-200">
+          <svg class="nav-icon w-5 h-5 transition-colors text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2
+                 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1
+                 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+          </svg>
+        </div>
+        <span class="nav-label text-sm font-medium transition-colors text-white/35">Feed</span>
+      </button>
+
+      <button data-tab="courts" onclick="navigateTo('courts')"
+              class="nav-sidebar-item flex items-center gap-3 w-full px-3 py-3 rounded-xl transition-all duration-200">
+        <div class="nav-icon-wrap w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-200">
+          <svg class="nav-icon w-5 h-5 transition-colors text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+              d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1
+                 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553
+                 2.276A1 1 0 0021 18.382V7.618a1 1 0
+                 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+          </svg>
+        </div>
+        <span class="nav-label text-sm font-medium transition-colors text-white/35">Courts</span>
+      </button>
+
+      <button data-tab="matches" onclick="navigateTo('matches')"
+              class="nav-sidebar-item flex items-center gap-3 w-full px-3 py-3 rounded-xl transition-all duration-200">
+        <div class="nav-icon-wrap w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-200">
+          <svg class="nav-icon w-5 h-5 transition-colors text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+              d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </div>
+        <span class="nav-label text-sm font-medium transition-colors text-white/35">Matches</span>
+      </button>
+
+      <button data-tab="rankings" onclick="navigateTo('rankings')"
+              class="nav-sidebar-item flex items-center gap-3 w-full px-3 py-3 rounded-xl transition-all duration-200">
+        <div class="nav-icon-wrap w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-200">
+          <svg class="nav-icon w-5 h-5 transition-colors text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0
+                 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0
+                 012 2v10m-6 0a2 2 0 002 2h2a2 2 0
+                 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2
+                 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+        </div>
+        <span class="nav-label text-sm font-medium transition-colors text-white/35">Rankings</span>
+      </button>
+
+      <button data-tab="profile" onclick="navigateTo('profile')"
+              class="nav-sidebar-item flex items-center gap-3 w-full px-3 py-3 rounded-xl transition-all duration-200">
+        <div class="nav-icon-wrap w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-200">
+          <svg class="nav-icon w-5 h-5 transition-colors text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7
+                 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+        </div>
+        <span class="nav-label text-sm font-medium transition-colors text-white/35">Profile</span>
+      </button>
+
+    </nav>
+
+    <div class="border-t border-white/5 px-4 py-5 flex items-center gap-3">
+      <div class="w-9 h-9 rounded-full bg-navy-700 border-2 border-teal-glow/40
+                  flex items-center justify-center flex-shrink-0">
+        <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2
+                   4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2
+                   0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+        </svg>
+      </div>
+      <div class="min-w-0">
+        <p class="text-white text-sm font-semibold truncate">Ron</p>
+        <p class="text-teal-glow text-xs font-medium">Rating 94</p>
+      </div>
+    </div>
+
+  </aside>
+
+
+  <!-- ═══════════════════════════════════════════════
+       MAIN CONTENT AREA
+  ═══════════════════════════════════════════════ -->
+  <div id="main-content" class="flex flex-col min-h-[100dvh] lg:ml-64 safe-pb-main lg:pb-0">
+
+    <!-- ═══════════ HEADER ═══════════ -->
+    <header class="sticky top-0 z-40 px-5 safe-pt lg:pt-5 pb-3 flex items-center justify-between
+                   bg-gradient-to-b from-navy-950 via-navy-950/95 to-transparent">
+      <div class="flex items-center gap-2 lg:hidden">
+        <div class="w-8 h-8 rounded-xl bg-teal-base/20 border border-teal-glow/40
+                    flex items-center justify-center shadow-teal-glow-sm">
+          <span class="text-teal-glow font-extrabold text-sm leading-none tracking-tight">S</span>
+        </div>
+        <span class="text-white font-bold text-xl tracking-tight">SportOut</span>
+      </div>
+      <span id="header-title" class="hidden lg:block text-white font-bold text-xl tracking-tight"></span>
+
+      <div class="flex items-center gap-3">
+        <button class="relative w-9 h-9 rounded-full bg-navy-700/80 border border-white/5
+                       flex items-center justify-center hover:border-teal-glow/40 transition-colors">
+          <svg class="w-4 h-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+              d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002
+                 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388
+                 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6
+                 0v1a3 3 0 11-6 0v-1m6 0H9" />
+          </svg>
+          <span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-teal-glow live-dot"></span>
+        </button>
+        <button class="w-9 h-9 rounded-full border-2 border-teal-glow/50 shadow-teal-glow-sm overflow-hidden
+                       bg-navy-700 flex items-center justify-center">
+          <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2
+                     4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2
+                     0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+
+    <!-- ═══════════════════════════════════════════════
+         TAB · FEED
+    ═══════════════════════════════════════════════ -->
+    <div data-section="feed">
+
+      <section class="px-4 lg:px-8 mt-2">
+        <div class="flex items-center justify-between mb-3 px-1">
+          <h2 class="text-base font-semibold text-white/90 tracking-tight">Highlights</h2>
+          <button onclick="showToast('Full highlights feed coming soon')"
+                  class="text-xs text-teal-glow font-medium hover:text-teal-base transition-colors">See all</button>
+        </div>
+
+        <div onclick="showToast('Video player coming soon')"
+             class="relative w-full aspect-video rounded-2xl overflow-hidden bg-navy-800 shadow-card
+                    border border-white/5 group cursor-pointer active:scale-[0.98] transition-transform duration-150">
+          <div class="absolute inset-0 bg-gradient-to-br from-navy-700 via-navy-800 to-navy-950"></div>
+          <div class="absolute inset-0 opacity-10"
+               style="background-image: linear-gradient(rgba(57,255,20,.15) 1px, transparent 1px),
+                                        linear-gradient(90deg, rgba(57,255,20,.15) 1px, transparent 1px);
+                      background-size: 32px 32px;"></div>
+          <div class="absolute inset-0 flex items-center justify-center">
+            <div class="w-24 h-24 rounded-full bg-teal-glow/5 border border-teal-glow/20
+                        flex items-center justify-center shadow-teal-glow
+                        group-hover:bg-teal-glow/10 transition-colors duration-200">
+              <svg class="w-10 h-10 text-teal-glow/70 group-hover:text-teal-glow transition-colors"
+                   fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1
+                     1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
+          <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-4">
+            <div class="flex items-end justify-between">
+              <div>
+                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full
+                             bg-teal-glow/15 border border-teal-glow/40 mb-2">
+                  <span class="w-1.5 h-1.5 rounded-full bg-teal-glow live-dot"></span>
+                  <span class="text-teal-glow text-[10px] font-bold uppercase tracking-widest">Live</span>
+                </span>
+                <p class="text-white font-bold text-sm leading-tight">May Highlights</p>
+                <p class="text-white/50 text-xs mt-0.5 flex items-center gap-1">
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827
+                         0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  Sportek Tel Aviv
+                </p>
+              </div>
+              <span class="text-xs text-white/60 bg-black/50 px-2 py-1 rounded-lg font-mono">2:34</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex gap-3 mt-3 overflow-x-auto no-scrollbar pb-1
+                    lg:grid lg:grid-cols-4 lg:overflow-x-visible lg:pb-0">
+          <div onclick="showToast('Clip viewer coming soon')"
+               class="flex-shrink-0 w-28 lg:w-auto aspect-video rounded-xl bg-navy-800 border border-white/5
+                      shadow-card cursor-pointer hover:border-teal-glow/30 active:scale-95
+                      transition-all duration-150 relative overflow-hidden group">
+            <div class="absolute inset-0 bg-gradient-to-br from-navy-700 to-navy-900"></div>
+            <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <svg class="w-6 h-6 text-teal-glow/80" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1
+                     1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </div>
+            <div class="absolute bottom-1.5 left-1.5 text-[10px] text-white/50 font-mono">1:12</div>
+          </div>
+          <div onclick="showToast('Clip viewer coming soon')"
+               class="flex-shrink-0 w-28 lg:w-auto aspect-video rounded-xl bg-navy-800 border border-white/5
+                      shadow-card cursor-pointer hover:border-teal-glow/30 active:scale-95
+                      transition-all duration-150 relative overflow-hidden group">
+            <div class="absolute inset-0 bg-gradient-to-br from-navy-700 to-navy-900"></div>
+            <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <svg class="w-6 h-6 text-teal-glow/80" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1
+                     1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </div>
+            <div class="absolute bottom-1.5 left-1.5 text-[10px] text-white/50 font-mono">0:58</div>
+          </div>
+          <div onclick="showToast('Clip viewer coming soon')"
+               class="flex-shrink-0 w-28 lg:w-auto aspect-video rounded-xl bg-navy-800 border border-white/5
+                      shadow-card cursor-pointer hover:border-teal-glow/30 active:scale-95
+                      transition-all duration-150 relative overflow-hidden group">
+            <div class="absolute inset-0 bg-gradient-to-br from-navy-700 to-navy-900"></div>
+            <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <svg class="w-6 h-6 text-teal-glow/80" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1
+                     1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </div>
+            <div class="absolute bottom-1.5 left-1.5 text-[10px] text-white/50 font-mono">3:07</div>
+          </div>
+          <div onclick="showToast('Clip viewer coming soon')"
+               class="flex-shrink-0 w-28 lg:w-auto aspect-video rounded-xl bg-navy-800 border border-white/5
+                      shadow-card cursor-pointer hover:border-teal-glow/30 active:scale-95
+                      transition-all duration-150 relative overflow-hidden group">
+            <div class="absolute inset-0 bg-gradient-to-br from-navy-700 to-navy-900"></div>
+            <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <svg class="w-6 h-6 text-teal-glow/80" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1
+                     1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </div>
+            <div class="absolute bottom-1.5 left-1.5 text-[10px] text-white/50 font-mono">2:20</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Map — clickable to open fullscreen -->
+      <section class="px-4 lg:px-8 mt-6">
+        <div class="flex items-center justify-between mb-3 px-1">
+          <h2 class="text-base font-semibold text-white/90 tracking-tight">Mappe Live Courts</h2>
+          <button onclick="showToast('Add court feature coming soon')"
+                  class="text-xs text-teal-glow font-medium hover:text-teal-base transition-colors">Add</button>
+        </div>
+
+        <div onclick="openMapModal()"
+             class="relative w-full h-52 lg:h-72 rounded-2xl overflow-hidden bg-navy-800 shadow-card
+                    border border-teal-glow/15 group cursor-pointer">
+          <div id="feed-map"></div>
+
+          <div class="absolute top-3 left-3 flex items-center gap-1.5
+                      bg-navy-950/80 border border-teal-glow/25 rounded-xl
+                      px-3 py-1.5 shadow-teal-glow-sm backdrop-blur-sm z-10">
+            <span class="w-2 h-2 rounded-full bg-teal-glow live-dot"></span>
+            <span id="feed-live-count" class="text-xs font-semibold text-white/80">3 Courts Live</span>
+          </div>
+
+          <!-- Expand hint -->
+          <div class="absolute top-3 right-3 z-10 flex items-center gap-1
+                      bg-navy-950/70 border border-white/10 rounded-lg px-2 py-1
+                      opacity-0 group-hover:opacity-100 transition-opacity">
+            <svg class="w-3 h-3 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
+            </svg>
+            <span class="text-white/60 text-[10px] font-medium">Expand</span>
+          </div>
+
+          <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent px-4 py-3 z-10">
+            <div class="flex items-end justify-between">
+              <div>
+                <p class="text-white font-semibold text-sm leading-tight">Tel Aviv Sports Zone</p>
+                <p class="text-white/45 text-xs mt-0.5">Hayarkon Park District · 1.2 km away</p>
+              </div>
+              <div class="flex items-center gap-1 bg-navy-950/70 border border-teal-glow/30 rounded-lg px-2 py-1">
+                <svg class="w-3 h-3 text-teal-glow" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07
+                           3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588
+                           1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921
+                           -.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175
+                           0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1
+                           1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1
+                           1 0 00.951-.69l1.07-3.292z"/>
+                </svg>
+                <span class="text-teal-glow text-xs font-bold">1.2k</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="px-4 lg:px-8 mt-6">
+        <div class="flex items-center justify-between mb-3 px-1">
+          <h2 class="text-base font-semibold text-white/90 tracking-tight">Leaderboard</h2>
+          <button onclick="navigateTo('rankings')" class="text-xs text-teal-glow font-medium">Full Table</button>
+        </div>
+        <div class="flex gap-3 overflow-x-auto no-scrollbar pb-1
+                    lg:grid lg:grid-cols-3 lg:overflow-x-visible lg:pb-0">
+          <div class="flex-shrink-0 w-36 lg:w-auto rounded-2xl bg-card-glass border border-white/5 bg-navy-800 p-4 shadow-card">
+            <p id="stat-total-players" class="text-teal-glow text-2xl font-extrabold tracking-tight">8.0<span class="text-base">k</span></p>
+            <p class="text-white/50 text-xs mt-1 font-medium">Total Players</p>
+          </div>
+          <div class="flex-shrink-0 w-36 lg:w-auto rounded-2xl bg-card-glass border border-white/5 bg-navy-800 p-4 shadow-card">
+            <p id="stat-total-courts" class="text-teal-glow text-2xl font-extrabold tracking-tight">—</p>
+            <p class="text-white/50 text-xs mt-1 font-medium">Active Courts</p>
+          </div>
+          <div class="flex-shrink-0 w-36 lg:w-auto rounded-2xl bg-card-glass border border-white/5 bg-navy-800 p-4 shadow-card">
+            <p class="text-teal-glow text-2xl font-extrabold tracking-tight">94<span class="text-base">%</span></p>
+            <p class="text-white/50 text-xs mt-1 font-medium">Match Rate</p>
+          </div>
+        </div>
+      </section>
+
+    </div><!-- /feed -->
+
+
+    <!-- ═══════════════════════════════════════════════
+         TAB · COURTS
+    ═══════════════════════════════════════════════ -->
+    <div data-section="courts" class="hidden px-4 lg:px-8 mt-4">
+
+      <div class="relative mb-5">
+        <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30"
+             fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <input type="text" placeholder="Search courts…"
+               class="w-full bg-navy-800 border border-white/8 rounded-2xl pl-10 pr-4 py-3
+                      text-sm text-white/80 placeholder-white/25 outline-none
+                      focus:border-teal-glow/40 transition-colors" />
+      </div>
+
+      <!-- Mini map — clickable -->
+      <div onclick="openMapModal()"
+           class="relative w-full h-40 rounded-2xl overflow-hidden bg-navy-800
+                  border border-teal-glow/15 shadow-card mb-5 cursor-pointer group">
+        <div id="courts-mini-map"></div>
+        <!-- Expand hint -->
+        <div class="absolute top-2 right-2 z-10 flex items-center gap-1
+                    bg-navy-950/70 border border-white/10 rounded-lg px-2 py-1
+                    opacity-0 group-hover:opacity-100 transition-opacity">
+          <svg class="w-3 h-3 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
+          </svg>
+          <span class="text-white/60 text-[10px] font-medium">Expand</span>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between mb-3 px-1">
+        <h2 class="text-base font-semibold text-white/90">Nearby Courts</h2>
+        <span id="nearby-live-count" class="text-xs text-white/30">—</span>
+      </div>
+
+      <!-- Horizontal scroll strip — populated dynamically by renderNearbyCourts() -->
+      <div id="nearby-courts-list"
+           class="flex gap-3 overflow-x-auto no-scrollbar pb-2 -mx-4 px-4 lg:mx-0 lg:px-0">
+        <!-- skeleton placeholder while geolocation resolves -->
+        <div class="flex-shrink-0 w-44 h-32 rounded-2xl bg-navy-800 border border-white/5 animate-pulse"></div>
+        <div class="flex-shrink-0 w-44 h-32 rounded-2xl bg-navy-800 border border-white/5 animate-pulse"></div>
+        <div class="flex-shrink-0 w-44 h-32 rounded-2xl bg-navy-800 border border-white/5 animate-pulse"></div>
+      </div>
+
+    </div><!-- /courts -->
+
+
+    <!-- ═══════════════════════════════════════════════
+         TAB · MATCHES  (LFG hub — dynamic)
+    ═══════════════════════════════════════════════ -->
+    <div data-section="matches" class="hidden px-4 lg:px-8 mt-4">
+
+      <!-- Filter chips -->
+      <div class="flex gap-2 overflow-x-auto no-scrollbar pb-1 mb-5">
+        <button class="flex-shrink-0 px-4 py-1.5 rounded-full bg-teal-glow/15 border border-teal-glow/40
+                       text-teal-glow text-xs font-semibold">Today</button>
+        <button class="flex-shrink-0 px-4 py-1.5 rounded-full bg-navy-800 border border-white/8
+                       text-white/40 text-xs font-medium">This Week</button>
+        <button class="flex-shrink-0 px-4 py-1.5 rounded-full bg-navy-800 border border-white/8
+                       text-white/40 text-xs font-medium">Open</button>
+        <button class="flex-shrink-0 px-4 py-1.5 rounded-full bg-navy-800 border border-white/8
+                       text-white/40 text-xs font-medium">Ranked</button>
+      </div>
+
+      <!-- Section header -->
+      <div class="flex items-center justify-between mb-4 px-1">
+        <h2 class="text-base font-semibold text-white/90">Looking for Players</h2>
+        <button onclick="showCreateMatch()"
+                class="text-xs text-teal-glow font-semibold hover:text-teal-base transition-colors">
+          + Create
+        </button>
+      </div>
+
+      <!-- Dynamic LFG cards — filled by renderMatchesTab() -->
+      <div id="matches-feed" class="flex flex-col lg:grid lg:grid-cols-2 gap-3 pb-6"></div>
+
+    </div><!-- /matches -->
+
+
+    <!-- ═══════════════════════════════════════════════
+         TAB · RANKINGS
+    ═══════════════════════════════════════════════ -->
+    <div data-section="rankings" class="hidden px-4 lg:px-8 mt-4">
+
+      <!-- Sport filter — 8 chips, scrollable -->
+      <div class="flex gap-2 overflow-x-auto no-scrollbar pb-1 mb-2">
+        <button class="sport-chip active" data-sport="all"         onclick="filterBySport('all')">All Sports</button>
+        <button class="sport-chip"        data-sport="padel"       onclick="filterBySport('padel')">Padel</button>
+        <button class="sport-chip"        data-sport="tennis"      onclick="filterBySport('tennis')">Tennis</button>
+        <button class="sport-chip"        data-sport="football"    onclick="filterBySport('football')">Football</button>
+        <button class="sport-chip"        data-sport="basketball"  onclick="filterBySport('basketball')">Basketball</button>
+        <button class="sport-chip"        data-sport="tabletennis" onclick="filterBySport('tabletennis')">Table Tennis</button>
+        <button class="sport-chip"        data-sport="footvolley"  onclick="filterBySport('footvolley')">Footvolley</button>
+        <button class="sport-chip"        data-sport="boxing"      onclick="filterBySport('boxing')">Boxing</button>
+      </div>
+
+      <!-- Region + Following filter row -->
+      <div class="flex gap-2 overflow-x-auto no-scrollbar pb-1 mb-5">
+        <button class="region-chip active" data-region="all"         onclick="filterByRegion('all')">🌍 All Cities</button>
+        <button class="region-chip"        data-region="telaviv"     onclick="filterByRegion('telaviv')">Tel Aviv</button>
+        <button class="region-chip"        data-region="herzliya"    onclick="filterByRegion('herzliya')">Herzliya</button>
+        <button class="region-chip"        data-region="ramatgan"    onclick="filterByRegion('ramatgan')">Ramat Gan</button>
+        <button class="region-chip"        data-region="jerusalem"   onclick="filterByRegion('jerusalem')">Jerusalem</button>
+        <button class="region-chip"        data-region="haifa"       onclick="filterByRegion('haifa')">Haifa</button>
+        <button id="following-chip" class="region-chip"              onclick="toggleFollowingFilter()">👥 Following</button>
+      </div>
+
+      <!-- Podium — dynamic, always visible, filled by renderPodium() -->
+      <div id="rankings-podium" class="flex items-end justify-center gap-3 mb-6">
+        <!-- Filled dynamically by JS -->
+      </div>
+
+      <!-- Top Players list -->
+      <div class="flex items-center justify-between mb-3 px-1">
+        <h2 id="rankings-title" class="text-base font-semibold text-white/90">Top Players</h2>
+        <span class="text-xs text-white/30">Rating</span>
+      </div>
+
+      <div id="rankings-list" class="flex flex-col gap-2">
+        <!-- Populated dynamically by filterBySport() — sequential rank numbers -->
+      </div>
+
+    </div><!-- /rankings -->
+
+
+    <!-- ═══════════════════════════════════════════════
+         TAB · PROFILE
+    ═══════════════════════════════════════════════ -->
+    <div data-section="profile" class="hidden">
+
+      <div class="px-4 lg:px-8 pt-4 pb-6 flex flex-col items-center
+                  bg-gradient-to-b from-navy-800/50 to-transparent">
+        <div class="w-20 h-20 rounded-full bg-navy-700 border-2 border-teal-glow/50
+                    shadow-teal-glow flex items-center justify-center mb-3">
+          <svg class="w-10 h-10 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2
+                     4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2
+                     0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+          </svg>
+        </div>
+        <p class="text-white font-bold text-lg tracking-tight">Ron</p>
+        <p class="text-white/40 text-sm mt-0.5">Padel &amp; Football Player · Tel Aviv</p>
+
+        <!-- Instagram-style stats row -->
+        <div class="flex items-center justify-around w-full mt-4 px-4">
+          <div class="text-center">
+            <p id="my-profile-rating" class="text-teal-glow font-extrabold text-xl leading-tight">94</p>
+            <p class="text-white/40 text-[11px] mt-0.5">Rating</p>
+          </div>
+          <div class="w-px h-8 bg-white/10"></div>
+          <div class="text-center">
+            <p id="my-followers" class="text-white font-bold text-xl leading-tight">450</p>
+            <p class="text-white/40 text-[11px] mt-0.5">Followers</p>
+          </div>
+          <div class="w-px h-8 bg-white/10"></div>
+          <div class="text-center">
+            <p id="my-following" class="text-white font-bold text-xl leading-tight">64</p>
+            <p class="text-white/40 text-[11px] mt-0.5">Following</p>
+          </div>
+        </div>
+
+        <button onclick="showToast('Profile editing coming soon')"
+                class="mt-4 px-6 py-2 rounded-xl bg-teal-glow/15 border border-teal-glow/40
+                       text-teal-glow text-sm font-semibold hover:bg-teal-glow/20 transition-colors">
+          Edit Profile
+        </button>
+      </div>
+
+      <!-- Sport toggle tabs for Ron's multi-sport profile -->
+      <div id="my-sport-tabs" class="flex gap-2 overflow-x-auto no-scrollbar px-4 mb-2 w-full hidden"></div>
+
+      <div id="my-stats-panel" class="mx-4 lg:mx-8 mb-5"></div>
+
+      <div class="px-4 lg:px-8 mb-5">
+        <div class="flex items-center justify-between mb-3 px-1">
+          <h2 class="text-base font-semibold text-white/90">My Highlights</h2>
+          <button onclick="showToast('Upload feature coming soon')"
+                  class="text-xs text-teal-glow font-medium">+ Upload</button>
+        </div>
+        <div class="flex gap-3 overflow-x-auto no-scrollbar pb-1">
+          <div onclick="showToast('Video player coming soon')"
+               class="flex-shrink-0 w-28 aspect-video rounded-xl bg-navy-800 border border-white/5
+                      cursor-pointer hover:border-teal-glow/30 active:scale-95 transition-all relative overflow-hidden">
+            <div class="absolute inset-0 bg-gradient-to-br from-navy-700 to-navy-900"></div>
+            <div class="absolute bottom-1.5 left-1.5 text-[10px] text-white/50 font-mono">0:47</div>
+          </div>
+          <div onclick="showToast('Video player coming soon')"
+               class="flex-shrink-0 w-28 aspect-video rounded-xl bg-navy-800 border border-white/5
+                      cursor-pointer hover:border-teal-glow/30 active:scale-95 transition-all relative overflow-hidden">
+            <div class="absolute inset-0 bg-gradient-to-br from-navy-700 to-navy-900"></div>
+            <div class="absolute bottom-1.5 left-1.5 text-[10px] text-white/50 font-mono">1:33</div>
+          </div>
+          <div onclick="showToast('Upload feature coming soon')"
+               class="flex-shrink-0 w-28 aspect-video rounded-xl border border-dashed border-teal-glow/20
+                      cursor-pointer hover:border-teal-glow/40 hover:bg-teal-glow/5
+                      transition-all flex items-center justify-center">
+            <svg class="w-6 h-6 text-teal-glow/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4v16m8-8H4"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="px-4 lg:px-8 flex flex-col gap-2 pb-2">
+        <div onclick="showToast('Settings coming soon')"
+             class="flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-navy-800 border border-white/5
+                    cursor-pointer hover:border-teal-glow/20 transition-colors">
+          <svg class="w-4 h-4 text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0
+                 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0
+                 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0
+                 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724
+                 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724
+                 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724
+                 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724
+                 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608
+                 2.296.07 2.572-1.065z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          <span class="flex-1 text-white/70 text-sm font-medium">Settings</span>
+          <svg class="w-4 h-4 text-white/20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+        </div>
+        <div onclick="showToast('Privacy settings coming soon')"
+             class="flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-navy-800 border border-white/5
+                    cursor-pointer hover:border-teal-glow/20 transition-colors">
+          <svg class="w-4 h-4 text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+              d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2
+                 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+          <span class="flex-1 text-white/70 text-sm font-medium">Privacy</span>
+          <svg class="w-4 h-4 text-white/20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+        </div>
+      </div>
+
+    </div><!-- /profile -->
+
+
+    <!-- ═══════════════════════════════════════════════
+         BOTTOM NAVIGATION — mobile only
+    ═══════════════════════════════════════════════ -->
+    <nav class="lg:hidden fixed bottom-0 left-0 right-0
+                bg-gradient-to-t from-navy-950 via-navy-950/98 to-transparent
+                border-t border-white/5 backdrop-blur-md z-50
+                safe-pb-nav">
+      <div class="flex items-center justify-around px-2 py-3">
+
+        <button data-tab="feed" onclick="navigateTo('feed')"
+                class="flex flex-col items-center gap-1">
+          <div class="nav-icon-wrap w-10 h-10 rounded-2xl flex items-center justify-center transition-all duration-200">
+            <svg class="nav-icon w-5 h-5 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2
+                   2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1
+                   1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+            </svg>
+          </div>
+          <span class="nav-label text-[10px] transition-colors">Feed</span>
+        </button>
+
+        <button data-tab="courts" onclick="navigateTo('courts')"
+                class="flex flex-col items-center gap-1">
+          <div class="nav-icon-wrap w-10 h-10 rounded-2xl flex items-center justify-center transition-all duration-200">
+            <svg class="nav-icon w-5 h-5 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+                d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1
+                   0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553
+                   2.276A1 1 0 0021 18.382V7.618a1 1 0
+                   00-.553-.894L15 4m0 13V4m0 0L9 7" />
+            </svg>
+          </div>
+          <span class="nav-label text-[10px] transition-colors">Courts</span>
+        </button>
+
+        <button data-tab="matches" onclick="navigateTo('matches')"
+                class="flex flex-col items-center gap-1">
+          <div class="nav-icon-wrap w-10 h-10 rounded-2xl flex items-center justify-center transition-all duration-200">
+            <svg class="nav-icon w-5 h-5 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+                d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+          <span class="nav-label text-[10px] transition-colors">Matches</span>
+        </button>
+
+        <button data-tab="rankings" onclick="navigateTo('rankings')"
+                class="flex flex-col items-center gap-1">
+          <div class="nav-icon-wrap w-10 h-10 rounded-2xl flex items-center justify-center transition-all duration-200">
+            <svg class="nav-icon w-5 h-5 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0
+                   002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0
+                   012 2v10m-6 0a2 2 0 002 2h2a2 2 0
+                   002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2
+                   2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+          </div>
+          <span class="nav-label text-[10px] transition-colors">Rankings</span>
+        </button>
+
+        <button data-tab="profile" onclick="navigateTo('profile')"
+                class="flex flex-col items-center gap-1">
+          <div class="nav-icon-wrap w-10 h-10 rounded-2xl flex items-center justify-center transition-all duration-200">
+            <svg class="nav-icon w-5 h-5 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7
+                   7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+          </div>
+          <span class="nav-label text-[10px] transition-colors">Profile</span>
+        </button>
+
+      </div>
+    </nav>
+
+  </div><!-- /main-content -->
+
+
+  <!-- ─── TOAST ─── -->
+  <div id="app-toast"
+       class="fixed z-[100] left-1/2 opacity-0 pointer-events-none
+              flex items-center gap-3 px-4 py-3 rounded-2xl
+              bg-navy-800 border border-teal-glow/30 shadow-teal-glow-sm backdrop-blur-sm"
+       style="width: calc(100% - 80px); max-width: 320px; transform: translateX(-50%);">
+    <span class="flex-shrink-0 w-6 h-6 rounded-full bg-teal-glow/15 border border-teal-glow/40
+                 flex items-center justify-center">
+      <svg class="w-3 h-3 text-teal-glow" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+    </span>
+    <span id="app-toast-msg" class="text-white/80 text-sm font-medium flex-1"></span>
+  </div>
+
+
+  <!-- ─── PLAYER DETAIL OVERLAY ─── -->
+  <div id="player-detail-overlay"
+       class="fixed inset-0 z-[200] bg-navy-950 flex flex-col overflow-y-auto">
+
+    <!-- Sticky header bar -->
+    <div class="sticky top-0 z-10 flex items-center gap-3 px-4 safe-pt pb-3
+                bg-navy-950/95 border-b border-white/5 backdrop-blur-md">
+      <button onclick="hidePlayerDetail()"
+              class="w-9 h-9 rounded-full bg-navy-800 border border-white/10
+                     flex items-center justify-center flex-shrink-0
+                     hover:border-teal-glow/40 transition-colors active:scale-95">
+        <svg class="w-4 h-4 text-white/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+      </button>
+      <span id="pd-title" class="text-white font-bold text-base flex-1 truncate">Player</span>
+    </div>
+
+    <!-- Instagram-style profile header -->
+    <div class="px-4 pt-5 pb-4 border-b border-white/5">
+
+      <!-- Top row: avatar LEFT · stats RIGHT -->
+      <div class="flex items-center gap-4 mb-4">
+        <div class="w-20 h-20 rounded-full bg-navy-700 border-2 border-teal-glow/50
+                    shadow-teal-glow flex items-center justify-center flex-shrink-0">
+          <span id="pd-initial" class="text-2xl font-extrabold text-teal-glow">R</span>
+        </div>
+        <div class="flex flex-1 items-center justify-around">
+          <div class="text-center">
+            <p id="pd-rating" class="text-teal-glow font-extrabold text-xl leading-tight">0.0</p>
+            <p class="text-white/40 text-[11px] mt-0.5">Rating</p>
+          </div>
+          <div class="w-px h-8 bg-white/10"></div>
+          <div class="text-center">
+            <p id="pd-followers" class="text-white font-bold text-xl leading-tight">0</p>
+            <p class="text-white/40 text-[11px] mt-0.5">Followers</p>
+          </div>
+          <div class="w-px h-8 bg-white/10"></div>
+          <div class="text-center">
+            <p id="pd-following" class="text-white font-bold text-xl leading-tight">0</p>
+            <p class="text-white/40 text-[11px] mt-0.5">Following</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Name · wins/losses · bio · meta -->
+      <p id="pd-name" class="text-white font-bold text-base leading-snug mb-1"></p>
+      <div class="flex items-center gap-3 mb-2">
+        <span class="text-white/45 text-xs"><span id="pd-wins" class="text-white font-semibold">0</span> W</span>
+        <span class="text-white/15 text-xs">·</span>
+        <span class="text-white/45 text-xs"><span id="pd-losses" class="text-white font-semibold">0</span> L</span>
+      </div>
+      <p id="pd-bio"  class="text-white/70 text-sm leading-snug mb-1"></p>
+      <p id="pd-meta" class="text-white/40 text-xs mb-2"></p>
+      <div id="pd-badges" class="flex flex-wrap gap-1.5"></div>
+
+      <!-- Sport toggle tabs (multi-sport players only) -->
+      <div id="pd-sport-tabs" class="flex gap-2 overflow-x-auto no-scrollbar mt-3 hidden"></div>
+
+      <!-- Action buttons -->
+      <div class="flex gap-2 mt-4">
+        <button id="pd-follow-btn"
+                onclick="toggleFollow(this)"
+                class="flex-1 py-2 rounded-xl bg-teal-glow/15 border border-teal-glow/40
+                       text-teal-glow text-sm font-semibold hover:bg-teal-glow/20
+                       transition-colors active:scale-95">Follow</button>
+        <button onclick="showToast('Messaging coming soon')"
+                class="flex-1 py-2 rounded-xl bg-navy-700 border border-white/10
+                       text-white/70 text-sm font-semibold hover:border-white/20
+                       transition-colors active:scale-95">Message</button>
+      </div>
+    </div>
+
+    <!-- Performance Attributes — FIFA/2K style, filled dynamically -->
+    <div id="pd-stats-panel"></div>
+
+    <!-- Highlights grid — dynamic YouTube embeds -->
+    <div class="pb-8">
+      <div class="flex items-center justify-between px-4 py-3">
+        <h2 class="text-sm font-semibold text-white/60">Highlights</h2>
+      </div>
+      <div id="pd-highlights-grid" class="grid grid-cols-3 gap-0.5 px-0.5"></div>
+    </div>
+
+  </div><!-- /player-detail-overlay -->
+
+
+  <!-- ─── COURT DETAIL OVERLAY ─── -->
+  <div id="court-detail-overlay"
+       class="fixed inset-0 z-[220] bg-navy-950 flex flex-col overflow-y-auto">
+
+    <!-- Sticky header bar -->
+    <div class="sticky top-0 z-10 flex items-center gap-3 px-4 safe-pt pb-3
+                bg-navy-950/95 border-b border-white/5 backdrop-blur-md">
+      <button onclick="hideCourtDetail()"
+              class="w-9 h-9 rounded-full bg-navy-800 border border-white/10
+                     flex items-center justify-center flex-shrink-0
+                     hover:border-teal-glow/40 transition-colors active:scale-95">
+        <svg class="w-4 h-4 text-white/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+      </button>
+      <span id="cd-title" class="text-white font-bold text-base flex-1 truncate">Court</span>
+      <span id="cd-live-badge"
+            class="text-[10px] font-bold px-2.5 py-1 rounded-full flex-shrink-0"></span>
+    </div>
+
+    <!-- Hero stats row -->
+    <div class="grid grid-cols-3 divide-x divide-white/5 border-b border-white/5">
+      <div class="flex flex-col items-center py-5 gap-1">
+        <p id="cd-players" class="text-teal-glow font-extrabold text-2xl leading-tight">0</p>
+        <p class="text-white/40 text-[11px]">Live Players</p>
+      </div>
+      <div class="flex flex-col items-center py-5 gap-1">
+        <p id="cd-courts" class="text-white font-extrabold text-2xl leading-tight">0/0</p>
+        <p class="text-white/40 text-[11px]">Courts Open</p>
+      </div>
+      <div class="flex flex-col items-center py-5 gap-1">
+        <p id="cd-rating" class="text-teal-glow font-extrabold text-2xl leading-tight">0.0</p>
+        <p class="text-white/40 text-[11px]">Avg Level</p>
+      </div>
+    </div>
+
+    <!-- Info panel -->
+    <div class="px-4 py-5 flex flex-col gap-0 divide-y divide-white/5">
+
+      <!-- Price -->
+      <div class="flex items-center gap-4 py-4">
+        <div class="w-9 h-9 rounded-xl bg-navy-800 border border-white/8 flex items-center justify-center flex-shrink-0">
+          <svg class="w-4 h-4 text-teal-glow/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+              d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <div class="flex-1">
+          <p class="text-white/40 text-xs mb-0.5">Price</p>
+          <p id="cd-price" class="text-white font-semibold text-sm"></p>
+        </div>
+      </div>
+
+      <!-- Opening hours -->
+      <div class="flex items-center gap-4 py-4">
+        <div class="w-9 h-9 rounded-xl bg-navy-800 border border-white/8 flex items-center justify-center flex-shrink-0">
+          <svg class="w-4 h-4 text-teal-glow/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <div class="flex-1">
+          <p class="text-white/40 text-xs mb-0.5">Opening Hours</p>
+          <p id="cd-open-hours" class="text-white font-semibold text-sm"></p>
+        </div>
+      </div>
+
+      <!-- Peak hours -->
+      <div class="flex items-center gap-4 py-4">
+        <div class="w-9 h-9 rounded-xl bg-navy-800 border border-white/8 flex items-center justify-center flex-shrink-0">
+          <svg class="w-4 h-4 text-teal-glow/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+              d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+        </div>
+        <div class="flex-1">
+          <p class="text-white/40 text-xs mb-0.5">Peak Hours</p>
+          <p id="cd-peak-hours" class="text-white font-semibold text-sm"></p>
+        </div>
+      </div>
+
+      <!-- Lights out -->
+      <div class="flex items-center gap-4 py-4">
+        <div class="w-9 h-9 rounded-xl bg-navy-800 border border-white/8 flex items-center justify-center flex-shrink-0">
+          <svg class="w-4 h-4 text-teal-glow/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+              d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+          </svg>
+        </div>
+        <div class="flex-1">
+          <p class="text-white/40 text-xs mb-0.5">Lights Out</p>
+          <p id="cd-lights-out" class="text-white font-semibold text-sm"></p>
+        </div>
+      </div>
+
+      <!-- Shade -->
+      <div class="flex items-center gap-4 py-4">
+        <div class="w-9 h-9 rounded-xl bg-navy-800 border border-white/8 flex items-center justify-center flex-shrink-0">
+          <svg class="w-4 h-4 text-teal-glow/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+              d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"/>
+          </svg>
+        </div>
+        <div class="flex-1">
+          <p class="text-white/40 text-xs mb-0.5">Shade</p>
+          <p id="cd-shade" class="text-white font-semibold text-sm"></p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Live on Court -->
+    <div id="cd-live-section" class="px-4 pt-4 pb-4 border-b border-white/5">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="w-1.5 h-1.5 rounded-full bg-teal-glow live-dot flex-shrink-0"></span>
+        <p class="text-white/35 text-[10px] font-semibold uppercase tracking-widest">Live on Court</p>
+      </div>
+      <div id="cd-live-roster" class="flex gap-4 overflow-x-auto no-scrollbar pb-1"></div>
+    </div>
+
+    <!-- Book CTA -->
+    <div class="px-4 pb-10 pt-4">
+      <button onclick="showToast('Booking coming soon')"
+              class="w-full py-3.5 rounded-2xl bg-teal-glow/15 border border-teal-glow/40
+                     text-teal-glow font-bold text-sm hover:bg-teal-glow/20
+                     transition-colors active:scale-95">
+        Book a Court
+      </button>
+    </div>
+
+  </div><!-- /court-detail-overlay -->
+
+
+  <!-- ─── MATCH DETAIL OVERLAY ─── -->
+  <div id="match-detail-overlay"
+       class="fixed inset-0 z-[180] bg-navy-950 flex flex-col overflow-y-auto">
+
+    <!-- Sticky header -->
+    <div class="sticky top-0 z-10 flex items-center gap-3 px-4 safe-pt pb-3
+                bg-navy-950/95 border-b border-white/5 backdrop-blur-md">
+      <button onclick="hideMatchDetail()"
+              class="w-9 h-9 rounded-full bg-navy-800 border border-white/10
+                     flex items-center justify-center flex-shrink-0
+                     hover:border-teal-glow/40 transition-colors active:scale-95">
+        <svg class="w-4 h-4 text-white/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+      </button>
+      <span id="md-sport" class="text-white font-bold text-base flex-1 truncate">Match</span>
+      <span id="md-time"  class="text-white/40 text-sm font-mono flex-shrink-0"></span>
+    </div>
+
+    <!-- Hero: venue + stats -->
+    <div class="px-4 pt-5 pb-4 border-b border-white/5">
+
+      <!-- Clickable court name -->
+      <button id="md-court-btn"
+              class="text-left w-full mb-5 group">
+        <p class="text-white/35 text-[10px] uppercase tracking-widest font-semibold mb-1.5">Venue</p>
+        <div class="flex items-center gap-2">
+          <p id="md-court-name" class="text-white font-bold text-xl leading-tight
+                                       group-hover:text-teal-glow transition-colors"></p>
+          <svg class="w-4 h-4 text-white/25 group-hover:text-teal-glow transition-colors flex-shrink-0"
+               fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+        </div>
+      </button>
+
+      <!-- 4-cell stat grid -->
+      <div class="grid grid-cols-4 gap-2">
+        <div class="bg-navy-800 border border-white/5 rounded-xl p-2.5 text-center">
+          <p id="md-format"     class="text-white font-bold text-sm leading-tight"></p>
+          <p class="text-white/30 text-[9px] mt-0.5">Format</p>
+        </div>
+        <div class="bg-teal-glow/8 border border-teal-glow/30 rounded-xl p-2.5 text-center">
+          <p id="md-missing"    class="text-teal-glow font-bold text-sm leading-tight"></p>
+          <p class="text-white/30 text-[9px] mt-0.5">Needed</p>
+        </div>
+        <div class="bg-navy-800 border border-white/5 rounded-xl p-2.5 text-center">
+          <p id="md-avg-rating" class="text-teal-glow font-bold text-sm leading-tight"></p>
+          <p class="text-white/30 text-[9px] mt-0.5">Avg Rating</p>
+        </div>
+        <div class="bg-navy-800 border border-white/5 rounded-xl p-2.5 text-center">
+          <p id="md-avg-age"    class="text-white font-bold text-sm leading-tight"></p>
+          <p class="text-white/30 text-[9px] mt-0.5">Avg Age</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Roster — filled dynamically -->
+    <div class="px-4 pt-5 pb-4 border-b border-white/5">
+      <p class="text-white/30 text-[9px] font-semibold tracking-widest uppercase mb-4">Players Joined</p>
+      <div id="md-roster" class="flex flex-wrap gap-4"></div>
+    </div>
+
+    <!-- Join CTA -->
+    <div class="px-4 pt-5 pb-10">
+      <button onclick="showToast('Match joined! You\'re in — see you on court')"
+              class="w-full py-4 rounded-2xl bg-teal-glow/15 border border-teal-glow/40
+                     text-teal-glow font-bold text-base hover:bg-teal-glow/20
+                     transition-colors active:scale-[0.98]">
+        Join Match
+      </button>
+    </div>
+
+  </div><!-- /match-detail-overlay -->
+
+
+  <!-- ─── CREATE MATCH OVERLAY ─── -->
+  <div id="create-match-overlay"
+       class="fixed inset-0 z-[185] bg-navy-950 flex flex-col overflow-y-auto">
+
+    <!-- Header -->
+    <div class="sticky top-0 z-10 flex items-center gap-3 px-4 safe-pt pb-3
+                bg-navy-950/95 border-b border-white/5 backdrop-blur-md">
+      <button onclick="hideCreateMatch()"
+              class="w-9 h-9 rounded-full bg-navy-800 border border-white/10
+                     flex items-center justify-center flex-shrink-0
+                     hover:border-teal-glow/40 transition-colors active:scale-95">
+        <svg class="w-4 h-4 text-white/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+      </button>
+      <span class="text-white font-bold text-base flex-1">Create a Match</span>
+    </div>
+
+    <!-- Form body -->
+    <div class="px-4 pt-6 pb-12 flex flex-col gap-6">
+
+      <!-- Sport -->
+      <div>
+        <p class="text-white/35 text-[10px] font-semibold uppercase tracking-widest mb-3">Sport</p>
+        <div class="flex gap-2">
+          <button class="cm-sport-btn active" onclick="selectCmSport(this,'Padel')">🎾 Padel</button>
+          <button class="cm-sport-btn"        onclick="selectCmSport(this,'Tennis')">🎾 Tennis</button>
+          <button class="cm-sport-btn"        onclick="selectCmSport(this,'Football')">⚽ Football</button>
+        </div>
+        <div class="flex gap-2 mt-2">
+          <button class="cm-sport-btn" onclick="selectCmSport(this,'Basketball')">🏀 Basketball</button>
+          <button class="cm-sport-btn" onclick="selectCmSport(this,'Table Tennis')">🏓 Table Tennis</button>
+          <button class="cm-sport-btn" onclick="selectCmSport(this,'Boxing')">🥊 Boxing</button>
+        </div>
+      </div>
+
+      <!-- Venue -->
+      <div>
+        <p class="text-white/35 text-[10px] font-semibold uppercase tracking-widest mb-3">Venue</p>
+        <select class="cm-input">
+          <option value="0">Sportek Tel Aviv — Padel · 1.2 km</option>
+          <option value="1">Dubnov Park Courts — Tennis · 2.4 km</option>
+          <option value="2">Padel Expo Tel Aviv — Padel · 5.1 km</option>
+        </select>
+      </div>
+
+      <!-- Date & Time -->
+      <div>
+        <p class="text-white/35 text-[10px] font-semibold uppercase tracking-widest mb-3">Date &amp; Time</p>
+        <div class="flex gap-2">
+          <input type="date"  class="cm-input" value="2026-04-18" />
+          <input type="time"  class="cm-input" value="19:00" />
+        </div>
+      </div>
+
+      <!-- Format -->
+      <div>
+        <p class="text-white/35 text-[10px] font-semibold uppercase tracking-widest mb-3">Format</p>
+        <div class="flex gap-2">
+          <button class="cm-format-btn"        onclick="selectCmFormat(this,'1v1')">1v1</button>
+          <button class="cm-format-btn active" onclick="selectCmFormat(this,'2v2')">2v2</button>
+          <button class="cm-format-btn"        onclick="selectCmFormat(this,'3v3')">3v3</button>
+          <button class="cm-format-btn"        onclick="selectCmFormat(this,'4v4')">4v4</button>
+          <button class="cm-format-btn"        onclick="selectCmFormat(this,'5v5')">5v5</button>
+        </div>
+      </div>
+
+      <!-- Spots available -->
+      <div>
+        <p class="text-white/35 text-[10px] font-semibold uppercase tracking-widest mb-3">Spots Available</p>
+        <select class="cm-input">
+          <option value="1">1 player needed</option>
+          <option value="2" selected>2 players needed</option>
+          <option value="3">3 players needed</option>
+          <option value="4">4 players needed</option>
+        </select>
+      </div>
+
+      <!-- Min rating -->
+      <div>
+        <p class="text-white/35 text-[10px] font-semibold uppercase tracking-widest mb-3">Minimum Rating</p>
+        <select class="cm-input">
+          <option value="0">No requirement</option>
+          <option value="55">55+</option>
+          <option value="60">60+</option>
+          <option value="70" selected>70+</option>
+          <option value="80">80+</option>
+          <option value="90">90+</option>
+        </select>
+      </div>
+
+      <!-- Publish -->
+      <button onclick="publishMatch()"
+              class="w-full py-4 rounded-2xl bg-teal-glow/15 border border-teal-glow/40
+                     text-teal-glow font-bold text-base hover:bg-teal-glow/20
+                     transition-colors active:scale-[0.98] mt-2">
+        Publish Match
+      </button>
+
+    </div>
+  </div><!-- /create-match-overlay -->
+
+
+  <!-- ─── FULLSCREEN MAP MODAL ─── -->
+  <div id="map-modal"
+       class="fixed inset-0 z-[150] bg-navy-950 flex flex-col">
+
+    <!-- Top bar -->
+    <div class="flex items-center justify-between px-4 safe-pt pb-3
+                bg-navy-950/95 border-b border-white/5 flex-shrink-0">
+      <h2 class="text-white font-bold text-base">Live Courts Map</h2>
+      <button onclick="closeMapModal()"
+              class="w-9 h-9 rounded-full bg-navy-800 border border-white/10
+                     flex items-center justify-center
+                     hover:border-teal-glow/40 transition-colors active:scale-95">
+        <svg class="w-4 h-4 text-white/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Court count chip -->
+    <div class="absolute top-16 left-4 z-10 flex items-center gap-1.5
+                bg-navy-950/85 border border-teal-glow/30 rounded-xl
+                px-3 py-1.5 shadow-teal-glow-sm backdrop-blur-sm">
+      <span class="w-2 h-2 rounded-full bg-teal-glow live-dot"></span>
+      <span id="map-live-count" class="text-xs font-semibold text-white/80">3 Courts Live</span>
+    </div>
+
+    <div id="fullscreen-map"></div>
+
+  </div><!-- /map-modal -->
+
+
+  <!-- ═══════════════════════════════════════════════
+       JAVASCRIPT
+  ═══════════════════════════════════════════════ -->
+  <script>
+    /* ── Toast ── */
+    let _toastTimer = null;
+
+    function showToast(message) {
+      const toast = document.getElementById('app-toast');
+      const msg   = document.getElementById('app-toast-msg');
+
+      msg.textContent = message;
+      clearTimeout(_toastTimer);
+
+      toast.classList.remove('toast-exit', 'opacity-0');
+      void toast.offsetWidth;
+      toast.classList.add('toast-enter');
+
+      _toastTimer = setTimeout(() => {
+        toast.classList.remove('toast-enter');
+        toast.classList.add('toast-exit');
+        setTimeout(() => {
+          toast.classList.remove('toast-exit');
+          toast.classList.add('opacity-0');
+        }, 240);
+      }, 2500);
+    }
+
+
+    /* ── Player data — sportsProfiles structure (41 hardcoded + generated to 1000) ── */
+    const PLAYERS = [
+      // ─── Tomer Slutzky — Basketball 98 (GOAT) ────────────────────────────────
+      { id:1,  name:'Tomer Slutzky', initial:'T', city:'Tel Aviv',
+        bio:'🏀 Elite baller | 🏆 12× MVP | The standard everyone chases',
+        badges:['🏆 12× MVP','👑 Elite Tier','🔥 Unstoppable'],
+        age:25, height:'2.01m', bodyType:'Athletic', dominantLimb:'Right hand',
+        sportsProfiles:[{ sport:'Basketball', rating:98, wins:67, losses:3,
+          tier:'Elite', mvpCount:12, fairPlay:4.9, reliability:'99%', position:'Point Guard',
+          stats:{ ppg:28.4, apg:9.1, rpg:6.2, fg_pct:'58%', steals:3.1, blocks:1.4 } }] },
+
+      // ─── Ron — Padel 94 + Football 82 (multi-sport) ──────────────────────────
+      { id:2,  name:'Ron', initial:'R', city:'Tel Aviv',
+        bio:'🎾 Dominating courts | 🏆 #1 Padel | ⚽ Football fanatic',
+        badges:['🔥 5+ Win Streak','🏆 #1 Padel','🎯 Sniper'],
+        age:28, height:'1.84m', bodyType:'Athletic', dominantLimb:'Right',
+        sportsProfiles:[
+          { sport:'Padel', rating:94, wins:38, losses:4,
+            tier:'Elite', mvpCount:8, fairPlay:4.9, reliability:'99%', position:'All-Court',
+            stats:{ aces:94, smash_power:96, stamina:94, unforced_errors:8 } },
+          { sport:'Football', rating:82, wins:24, losses:8,
+            tier:'Gold', mvpCount:4, fairPlay:4.7, reliability:'95%', position:'Midfielder',
+            stats:{ pace:84, shooting:78, passing:80, dribbling:82, defending:55, physicality:74, goals:18, assists:14 } }
+        ] },
+
+      // ─── Padel ───────────────────────────────────────────────
+      { id:3,  name:'Kobi Bar', initial:'K', city:'Tel Aviv',
+        bio:'🎾 Padel addict | 🌟 2× City Champ | Always on the court',
+        badges:['⚡ Net King','🌟 2× Champ'],
+        age:31, height:'1.79m', bodyType:'Athletic', dominantLimb:'Right',
+        sportsProfiles:[{ sport:'Padel', rating:89, wins:31, losses:7,
+          tier:'Gold', mvpCount:5, fairPlay:4.8, reliability:'97%', position:'Net Player',
+          stats:{ aces:71, smash_power:89, stamina:88, unforced_errors:14 } }] },
+      { id:4,  name:'Lior Khaytov', initial:'L', city:'Ramat Gan',
+        bio:'🎾 Spinning winners since 2019 | 🔥 Rising fast | Ramat Gan pride',
+        badges:['🔥 Rising Star','💪 Spin Master'],
+        age:26, height:'1.81m', bodyType:'Fit', dominantLimb:'Left',
+        sportsProfiles:[{ sport:'Padel', rating:80, wins:28, losses:10,
+          tier:'Gold', mvpCount:3, fairPlay:4.6, reliability:'94%', position:'Baseline',
+          stats:{ aces:58, smash_power:82, stamina:85, unforced_errors:19 } }] },
+      { id:5,  name:'Lior Khaytov', initial:'L', city:'Herzliya',
+        bio:'🎾 Court warrior | 🏅 Weekend champion | Chasing the top spot',
+        badges:['🏅 Weekend Champ'],
+        age:29, height:'1.77m', bodyType:'Fit', dominantLimb:'Right',
+        sportsProfiles:[{ sport:'Padel', rating:78, wins:22, losses:12,
+          tier:'Gold', mvpCount:2, fairPlay:4.7, reliability:'92%', position:'Baseline',
+          stats:{ aces:45, smash_power:79, stamina:82, unforced_errors:22 } }] },
+      { id:6,  name:'Liran Malki', initial:'L', city:'Tel Aviv',
+        bio:'🎾 Serve & volley king | 🌊 Tel Aviv beach padel | Keep grinding',
+        badges:['⚔️ Court Warrior'],
+        age:33, height:'1.75m', bodyType:'Fit', dominantLimb:'Right',
+        sportsProfiles:[{ sport:'Padel', rating:74, wins:18, losses:14,
+          tier:'Silver', mvpCount:1, fairPlay:4.5, reliability:'89%', position:'Defender',
+          stats:{ aces:38, smash_power:75, stamina:78, unforced_errors:28 } }] },
+      { id:7,  name:'Ofir Tuti', initial:'O', city:'Petah Tikva',
+        bio:'🎾 Smashing it in Petah Tikva | 💪 Every match is a lesson | Padel fanatic',
+        badges:[],
+        age:35, height:'1.73m', bodyType:'Average', dominantLimb:'Right',
+        sportsProfiles:[{ sport:'Padel', rating:68, wins:15, losses:16,
+          tier:'Silver', mvpCount:0, fairPlay:4.3, reliability:'86%', position:'All-Court',
+          stats:{ aces:29, smash_power:69, stamina:71, unforced_errors:35 } }] },
+      { id:11, name:'Nir Cohen', initial:'N', city:'Givatayim',
+        bio:'🎾 Givatayim padel scene | 🔝 Breaking top 10 | Smash & dash',
+        badges:[],
+        age:30, height:'1.78m', bodyType:'Average', dominantLimb:'Right',
+        sportsProfiles:[{ sport:'Padel', rating:65, wins:14, losses:17,
+          tier:'Silver', mvpCount:0, fairPlay:4.3, reliability:'85%', position:'All-Court',
+          stats:{ aces:24, smash_power:64, stamina:68, unforced_errors:38 } }] },
+      { id:12, name:'Yoav Ben-David', initial:'Y', city:'Tel Aviv',
+        bio:'🎾 Early morning grinder | ☀️ Tel Aviv sunrise padel | Improving daily',
+        badges:[],
+        age:25, height:'1.76m', bodyType:'Fit', dominantLimb:'Right',
+        sportsProfiles:[{ sport:'Padel', rating:62, wins:11, losses:19,
+          tier:'Silver', mvpCount:0, fairPlay:4.2, reliability:'83%', position:'Baseline',
+          stats:{ aces:21, smash_power:61, stamina:65, unforced_errors:40 } }] },
+      { id:13, name:'Tal Levy', initial:'T', city:'Herzliya',
+        bio:'🎾 Herzliya courts every weekend | 🏅 Always competing | Net play specialist',
+        badges:[],
+        age:28, height:'1.74m', bodyType:'Fit', dominantLimb:'Right',
+        sportsProfiles:[{ sport:'Padel', rating:59, wins:9, losses:21,
+          tier:'Silver', mvpCount:0, fairPlay:4.1, reliability:'81%', position:'Net Player',
+          stats:{ aces:18, smash_power:57, stamina:62, unforced_errors:42 } }] },
+      { id:14, name:'Moshe Peretz', initial:'M', city:'Bat Yam',
+        bio:'🎾 Bat Yam beach vibes | 🌊 Playing since 2021 | Growing fast',
+        badges:[],
+        age:32, height:'1.72m', bodyType:'Average', dominantLimb:'Left',
+        sportsProfiles:[{ sport:'Padel', rating:56, wins:7, losses:23,
+          tier:'Silver', mvpCount:0, fairPlay:4.0, reliability:'78%', position:'Baseline',
+          stats:{ aces:15, smash_power:52, stamina:58, unforced_errors:45 } }] },
+      { id:15, name:'Avi Goldstein', initial:'A', city:'Rishon LeZion',
+        bio:'🎾 Rishon rising star | 💪 Never giving up | Love the sport',
+        badges:[],
+        age:27, height:'1.71m', bodyType:'Fit', dominantLimb:'Right',
+        sportsProfiles:[{ sport:'Padel', rating:53, wins:5, losses:25,
+          tier:'Silver', mvpCount:0, fairPlay:4.0, reliability:'76%', position:'Defender',
+          stats:{ aces:12, smash_power:48, stamina:55, unforced_errors:48 } }] },
+      { id:16, name:'Eyal Shimoni', initial:'E', city:'Ramat Gan',
+        bio:'🎾 Weekend warrior | 🏙️ Ramat Gan nights | Always hungry',
+        badges:[],
+        age:34, height:'1.77m', bodyType:'Average', dominantLimb:'Right',
+        sportsProfiles:[{ sport:'Padel', rating:51, wins:4, losses:26,
+          tier:'Silver', mvpCount:0, fairPlay:3.9, reliability:'74%', position:'All-Court',
+          stats:{ aces:10, smash_power:44, stamina:52, unforced_errors:50 } }] },
+      { id:17, name:'Guy Romano', initial:'G', city:'Tel Aviv',
+        bio:'🎾 New to the court | 📈 Learning every match | Tel Aviv beginner',
+        badges:[],
+        age:23, height:'1.80m', bodyType:'Fit', dominantLimb:'Right',
+        sportsProfiles:[{ sport:'Padel', rating:48, wins:3, losses:27,
+          tier:'Bronze', mvpCount:0, fairPlay:3.8, reliability:'70%', position:'Baseline',
+          stats:{ aces:8, smash_power:40, stamina:48, unforced_errors:52 } }] },
+      { id:18, name:'Itai Barak', initial:'I', city:'Petah Tikva',
+        bio:'🎾 Beginner but motivated | 🙌 Learning from every point | Petah Tikva local',
+        badges:[],
+        age:26, height:'1.75m', bodyType:'Fit', dominantLimb:'Left',
+        sportsProfiles:[{ sport:'Padel', rating:45, wins:2, losses:28,
+          tier:'Bronze', mvpCount:0, fairPlay:3.9, reliability:'68%', position:'Baseline',
+          stats:{ aces:6, smash_power:35, stamina:44, unforced_errors:55 } }] },
+      { id:19, name:'Shai Mizrahi', initial:'S', city:'Holon',
+        bio:'🎾 Just started | 🌱 Every match is a lesson | Holon court newbie',
+        badges:[],
+        age:21, height:'1.73m', bodyType:'Fit', dominantLimb:'Right',
+        sportsProfiles:[{ sport:'Padel', rating:42, wins:2, losses:29,
+          tier:'Bronze', mvpCount:0, fairPlay:3.8, reliability:'65%', position:'All-Court',
+          stats:{ aces:5, smash_power:30, stamina:40, unforced_errors:58 } }] },
+
+      // ─── Tennis ──────────────────────────────────────────────
+      { id:8,  name:'Dan Haim Lee', initial:'D', city:'Tel Aviv',
+        bio:'🎾 Serving aces in Tel Aviv | 🏆 Local Open finalist | Love the game',
+        badges:['🎯 Ace Machine'],
+        age:27, height:'1.80m', bodyType:'Athletic', dominantLimb:'Right',
+        sportsProfiles:[{ sport:'Tennis', rating:63, wins:12, losses:18,
+          tier:'Silver', mvpCount:1, fairPlay:4.4, reliability:'88%', position:'Baseliner',
+          stats:{ aces:52, smash_power:72, stamina:76, unforced_errors:31 } }] },
+      { id:20, name:'Yael Katz', initial:'Y', city:'Tel Aviv',
+        bio:'🎾 Serve & conquer | 🏆 Club champion 2024 | Tel Aviv tennis life',
+        badges:['🏆 Club Champ 2024'],
+        age:29, height:'1.71m', bodyType:'Fit', dominantLimb:'Right',
+        sportsProfiles:[{ sport:'Tennis', rating:60, wins:10, losses:20,
+          tier:'Silver', mvpCount:1, fairPlay:4.5, reliability:'84%', position:'Baseliner',
+          stats:{ aces:44, smash_power:68, stamina:72, unforced_errors:34 } }] },
+      { id:21, name:'Ori Harari', initial:'O', city:'Herzliya',
+        bio:'🎾 Herzliya sunset sets | 🌅 Backhand specialist | Always improving',
+        badges:[],
+        age:31, height:'1.78m', bodyType:'Athletic', dominantLimb:'Right',
+        sportsProfiles:[{ sport:'Tennis', rating:57, wins:8, losses:22,
+          tier:'Silver', mvpCount:0, fairPlay:4.3, reliability:'82%', position:'Baseliner',
+          stats:{ aces:37, smash_power:63, stamina:68, unforced_errors:37 } }] },
+      { id:22, name:'Doron Shapira', initial:'D', city:'Ramat Gan',
+        bio:'🎾 Old school baseline game | 💪 Consistent and patient | Ramat Gan rallies',
+        badges:[],
+        age:38, height:'1.76m', bodyType:'Average', dominantLimb:'Right',
+        sportsProfiles:[{ sport:'Tennis', rating:54, wins:5, losses:25,
+          tier:'Silver', mvpCount:0, fairPlay:4.2, reliability:'79%', position:'Baseliner',
+          stats:{ aces:28, smash_power:56, stamina:60, unforced_errors:42 } }] },
+      { id:23, name:'Noa Abramov', initial:'N', city:'Tel Aviv',
+        bio:'🎾 From gym to court | 🎯 Working on my serve | Tel Aviv tennis newcomer',
+        badges:[],
+        age:24, height:'1.68m', bodyType:'Fit', dominantLimb:'Left',
+        sportsProfiles:[{ sport:'Tennis', rating:51, wins:3, losses:27,
+          tier:'Silver', mvpCount:0, fairPlay:4.0, reliability:'75%', position:'All-Court',
+          stats:{ aces:22, smash_power:49, stamina:55, unforced_errors:46 } }] },
+      { id:24, name:'Michael Cohen', initial:'M', city:'Givatayim',
+        bio:'🎾 Casual grinder | ☕ Post-match coffee ritual | Givatayim hobby player',
+        badges:[],
+        age:42, height:'1.74m', bodyType:'Average', dominantLimb:'Right',
+        sportsProfiles:[{ sport:'Tennis', rating:48, wins:2, losses:28,
+          tier:'Bronze', mvpCount:0, fairPlay:3.8, reliability:'70%', position:'Baseliner',
+          stats:{ aces:16, smash_power:42, stamina:48, unforced_errors:50 } }] },
+
+      // ─── Football ─────────────────────────────────────────────
+      { id:9,  name:'Ron Tsemakhman', initial:'R', city:'Holon',
+        bio:'⚽ Goals & glory in Holon | 🔥 Left-footer | Team player always',
+        badges:['⚽ Left-Foot Special'],
+        age:24, height:'1.76m', bodyType:'Athletic', dominantLimb:'Left foot',
+        sportsProfiles:[{ sport:'Football', rating:59, wins:9, losses:20,
+          tier:'Silver', mvpCount:0, fairPlay:4.1, reliability:'82%', position:'Striker',
+          stats:{ pace:79, shooting:74, passing:61, dribbling:76, defending:28, physicality:68, goals:9, assists:4 } }] },
+      { id:25, name:'David Azoulay', initial:'D', city:'Tel Aviv',
+        bio:'⚽ Central midfield maestro | 🎯 Vision & technique | Tel Aviv FC',
+        badges:['🎯 Playmaker'],
+        age:26, height:'1.78m', bodyType:'Athletic', dominantLimb:'Right foot',
+        sportsProfiles:[{ sport:'Football', rating:71, wins:16, losses:14,
+          tier:'Gold', mvpCount:3, fairPlay:4.5, reliability:'90%', position:'Central Midfielder',
+          stats:{ pace:72, shooting:68, passing:84, dribbling:75, defending:55, physicality:71, goals:16, assists:18 } }] },
+      { id:26, name:'Yossi Gabay', initial:'Y', city:'Petah Tikva',
+        bio:'⚽ Winger with pace | 💨 Cross & finish | Petah Tikva grassroots',
+        badges:['💨 Speed Demon'],
+        age:23, height:'1.74m', bodyType:'Fit', dominantLimb:'Left foot',
+        sportsProfiles:[{ sport:'Football', rating:64, wins:12, losses:18,
+          tier:'Silver', mvpCount:1, fairPlay:4.2, reliability:'87%', position:'Winger',
+          stats:{ pace:88, shooting:65, passing:68, dribbling:82, defending:30, physicality:62, goals:14, assists:9 } }] },
+      { id:27, name:'Matan Ben-Lulu', initial:'M', city:'Rishon LeZion',
+        bio:'⚽ Box-to-box player | 🛡️ Defensive duties first | Rishon team captain',
+        badges:[],
+        age:29, height:'1.80m', bodyType:'Athletic', dominantLimb:'Right foot',
+        sportsProfiles:[{ sport:'Football', rating:58, wins:8, losses:22,
+          tier:'Silver', mvpCount:0, fairPlay:4.1, reliability:'83%', position:'Defensive Mid',
+          stats:{ pace:68, shooting:55, passing:72, dribbling:60, defending:75, physicality:80, goals:4, assists:7 } }] },
+      { id:28, name:'Amir Friedman', initial:'A', city:'Bat Yam',
+        bio:'⚽ Strong in the air | 🏟️ Centre-back classic | Bat Yam Sunday league',
+        badges:[],
+        age:32, height:'1.86m', bodyType:'Athletic', dominantLimb:'Right foot',
+        sportsProfiles:[{ sport:'Football', rating:52, wins:5, losses:25,
+          tier:'Silver', mvpCount:0, fairPlay:4.0, reliability:'80%', position:'Centre Back',
+          stats:{ pace:60, shooting:45, passing:55, dribbling:42, defending:80, physicality:88, goals:2, assists:1 } }] },
+      { id:29, name:'Noam Elkayam', initial:'N', city:'Tel Aviv',
+        bio:'⚽ Attack-minded fullback | 🔁 Overlapping runs | Tel Aviv 5-a-side addict',
+        badges:[],
+        age:25, height:'1.75m', bodyType:'Fit', dominantLimb:'Left foot',
+        sportsProfiles:[{ sport:'Football', rating:49, wins:3, losses:27,
+          tier:'Bronze', mvpCount:0, fairPlay:3.9, reliability:'74%', position:'Left Back',
+          stats:{ pace:75, shooting:50, passing:65, dribbling:68, defending:58, physicality:65, goals:3, assists:5 } }] },
+      { id:30, name:'Oren Dadon', initial:'O', city:'Holon',
+        bio:'⚽ Holon local hero | 🏅 Playing for fun | The beautiful game',
+        badges:[],
+        age:30, height:'1.77m', bodyType:'Average', dominantLimb:'Right foot',
+        sportsProfiles:[{ sport:'Football', rating:45, wins:2, losses:28,
+          tier:'Bronze', mvpCount:0, fairPlay:3.8, reliability:'70%', position:'Midfielder',
+          stats:{ pace:65, shooting:52, passing:60, dribbling:55, defending:48, physicality:62, goals:3, assists:3 } }] },
+      { id:31, name:'Yuval Hajj', initial:'Y', city:'Ramat Gan',
+        bio:'⚽ Newcomer to 5-a-side | 🌱 Growing my game | Ramat Gan park kickabout',
+        badges:[],
+        age:21, height:'1.73m', bodyType:'Fit', dominantLimb:'Right foot',
+        sportsProfiles:[{ sport:'Football', rating:41, wins:1, losses:29,
+          tier:'Bronze', mvpCount:0, fairPlay:3.7, reliability:'65%', position:'Striker',
+          stats:{ pace:70, shooting:55, passing:50, dribbling:62, defending:25, physicality:60, goals:2, assists:1 } }] },
+
+      // ─── Basketball ───────────────────────────────────────────
+      { id:10, name:'Aviram Shuster', initial:'A', city:'Tel Aviv',
+        bio:'🏀 Hoops life in Tel Aviv | 🎯 Shooting guard | Always rising',
+        badges:['🎯 Sharp Shooter'],
+        age:22, height:'1.92m', bodyType:'Athletic', dominantLimb:'Right hand',
+        sportsProfiles:[{ sport:'Basketball', rating:55, wins:6, losses:22,
+          tier:'Bronze', mvpCount:0, fairPlay:4.0, reliability:'79%', position:'Shooting Guard',
+          stats:{ ppg:14.2, apg:3.8, rpg:5.1, fg_pct:'38%', steals:1.4, blocks:0.6 } }] },
+      { id:32, name:'Rotem Hadad', initial:'R', city:'Tel Aviv',
+        bio:'🏀 Point guard vision | 🎯 Court general | Tel Aviv Streetball King',
+        badges:['👑 Court General'],
+        age:27, height:'1.88m', bodyType:'Athletic', dominantLimb:'Right hand',
+        sportsProfiles:[{ sport:'Basketball', rating:68, wins:14, losses:16,
+          tier:'Silver', mvpCount:2, fairPlay:4.5, reliability:'88%', position:'Point Guard',
+          stats:{ ppg:18.4, apg:7.2, rpg:4.1, fg_pct:'44%', steals:2.1, blocks:0.4 } }] },
+      { id:33, name:'Lior Ohana', initial:'L', city:'Herzliya',
+        bio:'🏀 Power forward muscle | 💪 Glass eater | Herzliya rec league star',
+        badges:[],
+        age:30, height:'1.98m', bodyType:'Athletic', dominantLimb:'Right hand',
+        sportsProfiles:[{ sport:'Basketball', rating:61, wins:10, losses:20,
+          tier:'Silver', mvpCount:1, fairPlay:4.3, reliability:'84%', position:'Power Forward',
+          stats:{ ppg:15.7, apg:2.8, rpg:9.3, fg_pct:'48%', steals:0.8, blocks:1.9 } }] },
+      { id:34, name:'Ben Shahar', initial:'B', city:'Givatayim',
+        bio:'🏀 Hustle player | 🔥 Never stops running | Givatayim community league',
+        badges:[],
+        age:24, height:'1.94m', bodyType:'Fit', dominantLimb:'Right hand',
+        sportsProfiles:[{ sport:'Basketball', rating:54, wins:6, losses:24,
+          tier:'Silver', mvpCount:0, fairPlay:4.2, reliability:'80%', position:'Small Forward',
+          stats:{ ppg:11.3, apg:3.1, rpg:6.4, fg_pct:'39%', steals:1.3, blocks:0.8 } }] },
+      { id:35, name:'Tal Biton', initial:'T', city:'Tel Aviv',
+        bio:'🏀 Shooting guard hopeful | 🎯 Three-point dreams | Tel Aviv pick-up games',
+        badges:[],
+        age:21, height:'1.90m', bodyType:'Fit', dominantLimb:'Right hand',
+        sportsProfiles:[{ sport:'Basketball', rating:49, wins:3, losses:27,
+          tier:'Bronze', mvpCount:0, fairPlay:4.0, reliability:'75%', position:'Shooting Guard',
+          stats:{ ppg:9.6, apg:2.4, rpg:3.8, fg_pct:'33%', steals:0.9, blocks:0.3 } }] },
+      { id:36, name:'Yonatan Cohen', initial:'Y', city:'Ramat Gan',
+        bio:'🏀 Center in development | 🏋️ Building my game | Ramat Gan rec basketball',
+        badges:[],
+        age:22, height:'2.01m', bodyType:'Athletic', dominantLimb:'Right hand',
+        sportsProfiles:[{ sport:'Basketball', rating:43, wins:2, losses:28,
+          tier:'Bronze', mvpCount:0, fairPlay:3.9, reliability:'70%', position:'Center',
+          stats:{ ppg:7.8, apg:1.4, rpg:8.2, fg_pct:'42%', steals:0.4, blocks:1.6 } }] },
+
+      // ─── Table Tennis ─────────────────────────────────────────
+      { id:37, name:'Shlomi Yitzhak', initial:'S', city:'Tel Aviv',
+        bio:'🏓 Spin & smash master | ⚡ Lightning reflexes | Tel Aviv TT champion',
+        badges:['⚡ Lightning Reflexes'],
+        age:29, height:'1.75m', bodyType:'Fit', dominantLimb:'Right',
+        sportsProfiles:[{ sport:'Table Tennis', rating:57, wins:12, losses:18,
+          tier:'Silver', mvpCount:1, fairPlay:4.6, reliability:'85%', position:'Attacker',
+          stats:{ aces:18, smash_power:72, stamina:80, unforced_errors:24 } }] },
+      { id:38, name:'Paz Levy', initial:'P', city:'Rishon LeZion',
+        bio:'🏓 Defensive chopper | 🛡️ Long rallies | Rishon weekend table tennis',
+        badges:[],
+        age:33, height:'1.70m', bodyType:'Average', dominantLimb:'Right',
+        sportsProfiles:[{ sport:'Table Tennis', rating:44, wins:3, losses:27,
+          tier:'Bronze', mvpCount:0, fairPlay:4.0, reliability:'72%', position:'Defender',
+          stats:{ aces:11, smash_power:58, stamina:65, unforced_errors:36 } }] },
+
+      // ─── Footvolley ───────────────────────────────────────────
+      { id:39, name:'Omri Danino', initial:'O', city:'Tel Aviv',
+        bio:'🏐 Beachside footvolley | 🌊 Tel Aviv sand warrior | Sun, sea & sport',
+        badges:['🌊 Beach Warrior'],
+        age:27, height:'1.80m', bodyType:'Athletic', dominantLimb:'Right foot',
+        sportsProfiles:[{ sport:'Footvolley', rating:59, wins:9, losses:21,
+          tier:'Silver', mvpCount:0, fairPlay:4.4, reliability:'82%', position:'Attacker',
+          stats:{ aces:32, smash_power:78, stamina:85, unforced_errors:22 } }] },
+      { id:40, name:'Gal Abecassis', initial:'G', city:'Bat Yam',
+        bio:'🏐 Bat Yam beach life | 🌅 Footvolley at sunset | Growing game',
+        badges:[],
+        age:25, height:'1.77m', bodyType:'Fit', dominantLimb:'Left foot',
+        sportsProfiles:[{ sport:'Footvolley', rating:46, wins:4, losses:26,
+          tier:'Bronze', mvpCount:0, fairPlay:4.1, reliability:'74%', position:'All-Court',
+          stats:{ aces:18, smash_power:60, stamina:70, unforced_errors:35 } }] },
+
+      // ─── Boxing ───────────────────────────────────────────────
+      { id:41, name:'Ido Peretz', initial:'I', city:'Holon',
+        bio:'🥊 Hard left hook | 💥 Holon gym warrior | Counterpunch specialist',
+        badges:['🥊 Hard Hitter'],
+        age:26, height:'1.82m', bodyType:'Athletic', dominantLimb:'Left',
+        sportsProfiles:[{ sport:'Boxing', rating:62, wins:18, losses:12,
+          tier:'Silver', mvpCount:2, fairPlay:4.3, reliability:'86%', position:'Southpaw',
+          stats:{ aces:45, smash_power:88, stamina:82, unforced_errors:28 } }] },
+    ];
+
+    /* ── Sport highlight videos ── */
+    const SPORT_VIDEOS = {
+      padel:          ['b4j4Ib7NZKY','Q0JxSmFxJi4','yJAlK3p8qhc','ZwF_R3Ge22w','S9WHgY5mHxA','R98AaMFuEJw'],
+      tennis:         ['aTwXqJoGpCI','UQHCP-S5k_g','VsXNaT1x3kI','3H3sBpKhkds','MNcmHsibkuU','Tm6BSzKjGAE'],
+      football:       ['R8Wza_Qlz8k','ZCy5qL2c1mE','Vo0gU0JGYJI','9d4f-U7BjYQ','jRGxlhF6XJE','eNqxp3BqriA'],
+      basketball:     ['4SBiJQQ_gG4','wVOHnuARLTA','HPDcfFJBqTM','8fJLN0blj9Y','TDpfBrrgxWU','X4dPdFStFgI'],
+      'table tennis': ['jE-HtSCdRCU','HN0SnFT9LOk','R6_XRVO7yiU','D4WZpjGXrqQ','nOnpFqCkD2o','hSWVBi4EXw4'],
+      footvolley:     ['k2lF4FrPpyE','Cg5pCPBnhm0','WqiNJMjnMlU','Zt_2B8JhXhk','h4X0Ks5mHSI','nX4qkUQx5DA'],
+      boxing:         ['lfxDjhCzMkI','Kf_wVz8sMhk','vJuFLWCJJHI','kgSAtTOanvk','1YrYN5TU2u8','pQefZZ_8WJM'],
+    };
+
+
+    /* ── Procedural player generation ── */
+    const _FIRST = ['Avi','Bar','Ben','Dan','Dor','Eitan','Erez','Gal','Gil','Guy',
+      'Ido','Itai','Kobi','Lior','Liron','Matan','Mor','Nir','Noam','Ofir','Omer',
+      'Ori','Raz','Roei','Ron','Roni','Shay','Shai','Tal','Tom','Tomer','Uri',
+      'Yoav','Yonatan','Yossi','Yuval','Ziv','Adi','Alon','Amit','Ariel','Asaf',
+      'Dvir','Eden','Elad','Inbar','Keren','Maya','Noa','Nitzan','Paz','Rina',
+      'Sarit','Shoham','Tamar','Tzachi','Vered','Yael','Zohar','Eyal','Giora'];
+    const _LAST = ['Abramov','Azoulay','Bar','Ben-David','Ben-Lulu','Biton','Cohen',
+      'Dadon','Dayan','Elkayam','Friedman','Gabay','Goldstein','Hadad','Hajj',
+      'Haim','Katz','Khaytov','Levi','Malki','Mizrahi','Ohana','Peretz','Romano',
+      'Shahar','Shapira','Shuster','Slutzky','Tsemakhman','Yitzhak','Yoshua',
+      'Zadok','Ziv','Harari','Barak','Danino','Abecassis','Ben-Ami','Israeli',
+      'Levy','Amar','Buzaglo','Deri','Elbaz','Farhi','Golan','Hazan','Kahlon',
+      'Lahav','Marciano','Nahmias','Pinto','Regev','Sasson','Toledano'];
+    const _CITIES = ['Tel Aviv','Jerusalem','Haifa','Herzliya','Ramat Gan',
+      "Be'er Sheva",'Netanya','Ashdod',"Modi'in",'Raanana','Petah Tikva',
+      'Givatayim','Bat Yam','Rishon LeZion','Holon','Rehovot','Kfar Saba',
+      'Hod HaSharon','Eilat','Nazareth'];
+    const _SPORTS = ['Padel','Tennis','Football','Basketball','Table Tennis','Footvolley','Boxing'];
+    const _BODY   = ['Athletic','Fit','Average','Lean'];
+    const _SEMOJI = { Padel:'🎾',Tennis:'🎾',Football:'⚽',Basketball:'🏀','Table Tennis':'🏓',Footvolley:'🏐',Boxing:'🥊' };
+    const _LIMBS  = { Football:['Right foot','Left foot'], Basketball:['Right hand','Left hand'],
+                      Boxing:['Right','Left'], _default:['Right','Left'] };
+
+    function _ri(max) { return Math.floor(Math.random() * max); }
+    function _rng(lo, hi) { return lo + Math.floor(Math.random() * (hi - lo + 1)); }
+    function _clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+    function _genSportProfile(sport, rating) {
+      const tier = rating >= 90 ? 'Elite' : rating >= 75 ? 'Gold' : rating >= 60 ? 'Silver' : 'Bronze';
+      const wins   = Math.max(0, Math.round(rating * 0.35 + _rng(-4, 6)));
+      const losses = Math.max(0, Math.round((100 - rating) * 0.25 + _rng(0, 5)));
+      const mvpCount   = Math.max(0, Math.floor((rating - 60) / 8));
+      const fairPlay   = +Math.min(5, 3.4 + (rating / 100) * 1.6).toFixed(1);
+      const reliability = _clamp(58 + Math.round(rating * 0.42), 58, 99) + '%';
+      let position, stats;
+      if (sport === 'Football') {
+        const pos = ['Striker','Winger','Midfielder','Central Midfielder','Defensive Mid','Centre Back','Left Back','Right Back'];
+        position = pos[_ri(pos.length)];
+        stats = {
+          pace:        _clamp(rating + _rng(-12, 18), 35, 99),
+          shooting:    _clamp(rating + _rng(-18, 12), 28, 99),
+          passing:     _clamp(rating + _rng(-12, 12), 32, 99),
+          dribbling:   _clamp(rating + _rng(-12, 15), 30, 99),
+          defending:   _clamp(rating + _rng(-22, 12), 18, 99),
+          physicality: _clamp(rating + _rng(-12, 14), 38, 99),
+          goals:   Math.max(0, Math.round(wins * 0.7  + _rng(0, 6))),
+          assists: Math.max(0, Math.round(wins * 0.45 + _rng(0, 4))),
+        };
+      } else if (sport === 'Basketball') {
+        const pos = ['Point Guard','Shooting Guard','Small Forward','Power Forward','Center'];
+        position = pos[_ri(pos.length)];
+        stats = {
+          ppg:    +Math.max(2, rating * 0.28 + _rng(-3, 6)).toFixed(1),
+          apg:    +(_rng(10, 85) / 10).toFixed(1),
+          rpg:    +(_rng(15, 120) / 10).toFixed(1),
+          fg_pct: _clamp(Math.round(28 + rating * 0.27), 26, 65) + '%',
+          steals: +(_rng(1, 30) / 10).toFixed(1),
+          blocks: +(_rng(1, 25) / 10).toFixed(1),
+        };
+      } else {
+        const posMap = {
+          Padel:['Net Player','Baseline','All-Court','Defender'],
+          Tennis:['Baseliner','All-Court','Net Player','Serve & Volley'],
+          'Table Tennis':['Attacker','Defender','All-Court','Looper'],
+          Footvolley:['Attacker','Defender','All-Court','Setter'],
+          Boxing:['Orthodox','Southpaw','Counter-Puncher','Brawler'],
+        };
+        position = (posMap[sport] || ['All-Court'])[_ri((posMap[sport] || ['All-Court']).length)];
+        stats = {
+          aces:            _clamp(Math.round(rating * 0.95 + _rng(-8, 12)), 3, 99),
+          smash_power:     _clamp(rating + _rng(-6, 10), 28, 99),
+          stamina:         _clamp(rating + _rng(-10, 8), 30, 99),
+          unforced_errors: _clamp(Math.round(72 - rating * 0.65 + _rng(-6, 12)), 4, 65),
+        };
+      }
+      return { sport, rating, wins, losses, tier, mvpCount, fairPlay, reliability, position, stats };
+    }
+
+    function generateMockPlayers(count) {
+      const result = [];
+      const startId = 42;
+      for (let i = 0; i < count; i++) {
+        const fname = _FIRST[_ri(_FIRST.length)];
+        const lname = _LAST[_ri(_LAST.length)];
+        const city  = _CITIES[_ri(_CITIES.length)];
+        const numSports = Math.random() < 0.18 ? 2 : 1;
+        const shuffled  = [..._SPORTS].sort(() => Math.random() - 0.5).slice(0, numSports);
+        const sportsProfiles = shuffled.map(s => _genSportProfile(s, 55 + _rng(0, 44)));
+        const ps    = sportsProfiles[0].sport;
+        const limbs = _LIMBS[ps] || _LIMBS._default;
+        result.push({
+          id: startId + i,
+          name: fname + ' ' + lname,
+          initial: fname[0],
+          city,
+          bio: `${_SEMOJI[ps] || '🏃'} ${city} ${ps} player | Rating ${sportsProfiles[0].rating}`,
+          badges: [],
+          age: 17 + _rng(0, 22),
+          height: (1.62 + Math.random() * 0.38).toFixed(2) + 'm',
+          bodyType: _BODY[_ri(_BODY.length)],
+          dominantLimb: limbs[_ri(2)],
+          sportsProfiles,
+        });
+      }
+      return result;
+    }
+
+    /* ── Player index (O(1) lookup by id) ── */
+    let _playerIdx = new Map();
+    function buildPlayerIndex() {
+      _playerIdx.clear();
+      PLAYERS.forEach((p, i) => _playerIdx.set(p.id, i));
+    }
+    function getPlayer(id) {
+      const i = _playerIdx.get(id);
+      return i !== undefined ? PLAYERS[i] : null;
+    }
+
+    /* ── Global rank cache (sorted by best rating across all sports) ── */
+    let _rankList = [];
+    function buildGlobalRankCache() {
+      _rankList = [...PLAYERS]
+        .map(p => ({ id: p.id, top: Math.max(...p.sportsProfiles.map(sp => sp.rating)) }))
+        .sort((a, b) => b.top - a.top)
+        .map(x => x.id);
+    }
+    function getGlobalRank(id) {
+      const r = _rankList.indexOf(id);
+      return r === -1 ? PLAYERS.length : r + 1;
+    }
+
+
+    /* ── Leaflet map data ── */
+    const COURTS = [
+      /* ── Tel Aviv ── */
+      {
+        name: 'Sportek North Tel Aviv', lat: 32.0856, lng: 34.7916, live: true,
+        sport: 'Padel', distance: '1.2 km',
+        price: '120 ILS/hr', openHours: '06:00 – 23:00', peakHours: '18:00 – 21:00',
+        lightsOut: '23:00', lightingHours: 'Until 23:00', hasShade: true,
+        crowdLevel: 'High', totalCourts: 4, openCourts: 3, currentPlayers: 14, avgRating: 82,
+        playersCurrentlyOnCourt: [2, 3, 4, 6, 11, 12, 16, 17],
+      },
+      {
+        name: 'Dubnov Park Tennis Courts', lat: 32.0801, lng: 34.7793, live: true,
+        sport: 'Tennis', distance: '2.4 km',
+        price: 'Free', openHours: '07:00 – 22:00', peakHours: '17:00 – 20:00',
+        lightsOut: '22:00', lightingHours: 'Until 22:00', hasShade: false,
+        crowdLevel: 'Medium', totalCourts: 2, openCourts: 2, currentPlayers: 6, avgRating: 71,
+        playersCurrentlyOnCourt: [8, 20, 21, 23],
+      },
+      {
+        name: 'Padel Expo Tel Aviv', lat: 32.1070, lng: 34.8430, live: false,
+        sport: 'Padel', distance: '5.1 km',
+        price: '95 ILS/hr', openHours: '08:00 – 22:00', peakHours: '19:00 – 21:00',
+        lightsOut: '22:00', lightingHours: 'Until 22:00', hasShade: true,
+        crowdLevel: 'Low', totalCourts: 6, openCourts: 0, currentPlayers: 0, avgRating: 78,
+        playersCurrentlyOnCourt: [],
+      },
+      {
+        name: 'Adidas Court Tel Aviv', lat: 32.0968, lng: 34.7721, live: true,
+        sport: 'Basketball', distance: '2.8 km',
+        price: 'Free', openHours: '08:00 – 22:00', peakHours: '16:00 – 20:00',
+        lightsOut: '22:00', lightingHours: 'Until 22:00', hasShade: false,
+        crowdLevel: 'Medium', totalCourts: 2, openCourts: 2, currentPlayers: 8, avgRating: 64,
+        playersCurrentlyOnCourt: [1, 10, 32, 33],
+      },
+      {
+        name: 'Gordon Beach Football Courts', lat: 32.0811, lng: 34.7662, live: true,
+        sport: 'Football', distance: '3.4 km',
+        price: 'Free', openHours: '06:00 – 22:00', peakHours: '17:00 – 20:00',
+        lightsOut: '22:00', lightingHours: 'Until 22:00', hasShade: false,
+        crowdLevel: 'High', totalCourts: 1, openCourts: 1, currentPlayers: 12, avgRating: 58,
+        playersCurrentlyOnCourt: [25, 26, 27, 29, 30, 31],
+      },
+      {
+        name: 'Tel Baruch Beach Arena', lat: 32.1127, lng: 34.7960, live: true,
+        sport: 'Footvolley', distance: '7.4 km',
+        price: 'Free', openHours: '06:00 – 20:00', peakHours: '07:00 – 10:00',
+        lightsOut: 'No lights', lightingHours: 'No Lighting', hasShade: false,
+        crowdLevel: 'Low', totalCourts: 2, openCourts: 2, currentPlayers: 4, avgRating: 59,
+        playersCurrentlyOnCourt: [39, 40],
+      },
+      {
+        name: 'Bloomfield Stadium Courts', lat: 32.0511, lng: 34.7570, live: true,
+        sport: 'Football', distance: '5.6 km',
+        price: '80 ILS/hr', openHours: '08:00 – 22:00', peakHours: '19:00 – 22:00',
+        lightsOut: '22:00', lightingHours: 'Until 22:00', hasShade: true,
+        crowdLevel: 'Medium', totalCourts: 3, openCourts: 2, currentPlayers: 9, avgRating: 62,
+        playersCurrentlyOnCourt: [9, 28, 34],
+      },
+      {
+        name: 'HaYarkon Park Sports Hub', lat: 32.0943, lng: 34.7873, live: true,
+        sport: 'Basketball', distance: '4.1 km',
+        price: 'Free', openHours: '07:00 – 22:00', peakHours: '16:00 – 20:00',
+        lightsOut: '22:00', lightingHours: 'Until 22:00', hasShade: true,
+        crowdLevel: 'High', totalCourts: 2, openCourts: 2, currentPlayers: 13, avgRating: 69,
+        playersCurrentlyOnCourt: [7, 15, 35, 36, 37, 38],
+      },
+      {
+        name: 'Kikar Hamedina Tennis Club', lat: 32.0832, lng: 34.7800, live: true,
+        sport: 'Tennis', distance: '2.9 km',
+        price: '90 ILS/hr', openHours: '07:00 – 23:00', peakHours: '17:00 – 21:00',
+        lightsOut: '23:00', lightingHours: 'Until 23:00', hasShade: true,
+        crowdLevel: 'Medium', totalCourts: 4, openCourts: 3, currentPlayers: 7, avgRating: 74,
+        playersCurrentlyOnCourt: [14, 22, 24],
+      },
+      {
+        name: 'South Beach Footvolley Arena', lat: 32.0680, lng: 34.7563, live: false,
+        sport: 'Footvolley', distance: '4.5 km',
+        price: 'Free', openHours: '06:00 – 19:00', peakHours: '07:00 – 10:00',
+        lightsOut: 'No lights', lightingHours: 'No Lighting', hasShade: false,
+        crowdLevel: 'Low', totalCourts: 2, openCourts: 0, currentPlayers: 0, avgRating: 55,
+        playersCurrentlyOnCourt: [],
+      },
+      /* ── Herzliya / Ra'anana / Kfar Saba ── */
+      {
+        name: 'Herzliya Marina Padel', lat: 32.1641, lng: 34.8046, live: true,
+        sport: 'Padel', distance: '9.2 km',
+        price: '150 ILS/hr', openHours: '07:00 – 23:00', peakHours: '17:00 – 21:00',
+        lightsOut: '23:00', lightingHours: 'Until 23:00', hasShade: true,
+        crowdLevel: 'High', totalCourts: 3, openCourts: 2, currentPlayers: 10, avgRating: 76,
+        playersCurrentlyOnCourt: [5, 13, 18, 19],
+      },
+      {
+        name: 'Herzliya Basketball Grove', lat: 32.1580, lng: 34.8150, live: true,
+        sport: 'Basketball', distance: '9.8 km',
+        price: 'Free', openHours: '08:00 – 22:00', peakHours: '16:00 – 20:00',
+        lightsOut: '22:00', lightingHours: 'Until 22:00', hasShade: true,
+        crowdLevel: 'Medium', totalCourts: 2, openCourts: 2, currentPlayers: 7, avgRating: 66,
+        playersCurrentlyOnCourt: [6, 41],
+      },
+      {
+        name: "Ra'anana Sports Park", lat: 32.1839, lng: 34.8739, live: true,
+        sport: 'Tennis', distance: '14.5 km',
+        price: '75 ILS/hr', openHours: '07:00 – 22:00', peakHours: '17:00 – 20:00',
+        lightsOut: '22:00', lightingHours: 'Until 22:00', hasShade: true,
+        crowdLevel: 'Medium', totalCourts: 4, openCourts: 3, currentPlayers: 6, avgRating: 63,
+        playersCurrentlyOnCourt: [20, 23],
+      },
+      /* ── Ramat Gan / Givatayim / Petah Tikva ── */
+      {
+        name: 'Ramat Gan National Park Court', lat: 32.0820, lng: 34.8224, live: false,
+        sport: 'Basketball', distance: '4.8 km',
+        price: 'Free', openHours: '07:00 – 20:00', peakHours: '15:00 – 19:00',
+        lightsOut: 'No lights', lightingHours: 'No Lighting', hasShade: true,
+        crowdLevel: 'Low', totalCourts: 1, openCourts: 0, currentPlayers: 0, avgRating: 51,
+        playersCurrentlyOnCourt: [],
+      },
+      {
+        name: 'Givatayim Park Tennis', lat: 32.0684, lng: 34.8102, live: true,
+        sport: 'Tennis', distance: '5.3 km',
+        price: 'Free', openHours: '07:00 – 21:00', peakHours: '17:00 – 20:00',
+        lightsOut: '21:00', lightingHours: 'Until 21:00', hasShade: false,
+        crowdLevel: 'Low', totalCourts: 2, openCourts: 2, currentPlayers: 3, avgRating: 58,
+        playersCurrentlyOnCourt: [21],
+      },
+      {
+        name: 'Petah Tikva Padel Arena', lat: 32.0871, lng: 34.8870, live: true,
+        sport: 'Padel', distance: '11.4 km',
+        price: '110 ILS/hr', openHours: '08:00 – 23:00', peakHours: '18:00 – 22:00',
+        lightsOut: '23:00', lightingHours: 'Until 23:00', hasShade: true,
+        crowdLevel: 'Medium', totalCourts: 3, openCourts: 2, currentPlayers: 8, avgRating: 70,
+        playersCurrentlyOnCourt: [4, 16],
+      },
+      /* ── Netanya ── */
+      {
+        name: 'Netanya Padel & Tennis Club', lat: 32.3325, lng: 34.8600, live: true,
+        sport: 'Padel', distance: '30.4 km',
+        price: '130 ILS/hr', openHours: '07:00 – 23:00', peakHours: '17:00 – 21:00',
+        lightsOut: '23:00', lightingHours: 'Until 23:00', hasShade: true,
+        crowdLevel: 'Medium', totalCourts: 5, openCourts: 3, currentPlayers: 9, avgRating: 72,
+        playersCurrentlyOnCourt: [3, 11, 19],
+      },
+      /* ── Holon / Bat Yam / Rishon LeZion ── */
+      {
+        name: 'Holon Sport Center', lat: 32.0124, lng: 34.7726, live: false,
+        sport: 'Padel', distance: '8.1 km',
+        price: '100 ILS/hr', openHours: '09:00 – 22:00', peakHours: '18:00 – 21:00',
+        lightsOut: '22:00', lightingHours: 'Until 22:00', hasShade: true,
+        crowdLevel: 'Low', totalCourts: 2, openCourts: 0, currentPlayers: 0, avgRating: 67,
+        playersCurrentlyOnCourt: [],
+      },
+      {
+        name: 'Bat Yam Beach Football Arena', lat: 32.0200, lng: 34.7490, live: true,
+        sport: 'Football', distance: '7.6 km',
+        price: 'Free', openHours: '06:00 – 22:00', peakHours: '17:00 – 20:00',
+        lightsOut: '22:00', lightingHours: 'Until 22:00', hasShade: false,
+        crowdLevel: 'Medium', totalCourts: 1, openCourts: 1, currentPlayers: 8, avgRating: 60,
+        playersCurrentlyOnCourt: [27, 29, 30],
+      },
+      {
+        name: 'Rishon LeZion Padel Club', lat: 31.9762, lng: 34.7896, live: true,
+        sport: 'Padel', distance: '12.3 km',
+        price: '115 ILS/hr', openHours: '08:00 – 23:00', peakHours: '18:00 – 22:00',
+        lightsOut: '23:00', lightingHours: 'Until 23:00', hasShade: true,
+        crowdLevel: 'High', totalCourts: 4, openCourts: 3, currentPlayers: 11, avgRating: 73,
+        playersCurrentlyOnCourt: [2, 18, 26, 31],
+      },
+      /* ── Jerusalem ── */
+      {
+        name: 'Wohl Rose Park Jerusalem', lat: 31.7762, lng: 35.2159, live: true,
+        sport: 'Tennis', distance: '68 km',
+        price: 'Free', openHours: '07:00 – 21:00', peakHours: '08:00 – 11:00',
+        lightsOut: '21:00', lightingHours: 'Until 21:00', hasShade: true,
+        crowdLevel: 'Low', totalCourts: 4, openCourts: 3, currentPlayers: 5, avgRating: 52,
+        playersCurrentlyOnCourt: [22, 24],
+      },
+      {
+        name: 'Sacher Park Basketball Courts', lat: 31.7793, lng: 35.2044, live: true,
+        sport: 'Basketball', distance: '67 km',
+        price: 'Free', openHours: '07:00 – 22:00', peakHours: '15:00 – 19:00',
+        lightsOut: '22:00', lightingHours: 'Until 22:00', hasShade: true,
+        crowdLevel: 'Medium', totalCourts: 2, openCourts: 2, currentPlayers: 8, avgRating: 61,
+        playersCurrentlyOnCourt: [33, 35, 38],
+      },
+      {
+        name: 'Givat Ram Sports Center', lat: 31.7717, lng: 35.1972, live: false,
+        sport: 'Football', distance: '68.5 km',
+        price: '70 ILS/hr', openHours: '08:00 – 22:00', peakHours: '17:00 – 20:00',
+        lightsOut: '22:00', lightingHours: 'Until 22:00', hasShade: false,
+        crowdLevel: 'Low', totalCourts: 2, openCourts: 0, currentPlayers: 0, avgRating: 57,
+        playersCurrentlyOnCourt: [],
+      },
+      {
+        name: 'Teddy Park Jerusalem Padel', lat: 31.7640, lng: 35.2133, live: true,
+        sport: 'Padel', distance: '69 km',
+        price: '140 ILS/hr', openHours: '08:00 – 23:00', peakHours: '18:00 – 22:00',
+        lightsOut: '23:00', lightingHours: 'Until 23:00', hasShade: true,
+        crowdLevel: 'Medium', totalCourts: 3, openCourts: 2, currentPlayers: 6, avgRating: 69,
+        playersCurrentlyOnCourt: [12, 17],
+      },
+      /* ── Haifa ── */
+      {
+        name: 'Maccabi Haifa Carmel Court', lat: 32.8184, lng: 34.9885, live: true,
+        sport: 'Basketball', distance: '93 km',
+        price: 'Free', openHours: '08:00 – 22:00', peakHours: '16:00 – 20:00',
+        lightsOut: '22:00', lightingHours: 'Until 22:00', hasShade: true,
+        crowdLevel: 'High', totalCourts: 2, openCourts: 2, currentPlayers: 12, avgRating: 75,
+        playersCurrentlyOnCourt: [1, 7, 15, 36, 37],
+      },
+      {
+        name: 'Haifa Beach Football Arena', lat: 32.8158, lng: 34.9553, live: true,
+        sport: 'Football', distance: '94 km',
+        price: 'Free', openHours: '06:00 – 22:00', peakHours: '17:00 – 20:00',
+        lightsOut: '22:00', lightingHours: 'Until 22:00', hasShade: false,
+        crowdLevel: 'Medium', totalCourts: 1, openCourts: 1, currentPlayers: 9, avgRating: 62,
+        playersCurrentlyOnCourt: [25, 28, 34],
+      },
+      {
+        name: 'Matam Sports Hub Haifa', lat: 32.7990, lng: 34.9860, live: true,
+        sport: 'Padel', distance: '95 km',
+        price: '125 ILS/hr', openHours: '07:00 – 23:00', peakHours: '18:00 – 22:00',
+        lightsOut: '23:00', lightingHours: 'Until 23:00', hasShade: true,
+        crowdLevel: 'Medium', totalCourts: 3, openCourts: 2, currentPlayers: 7, avgRating: 71,
+        playersCurrentlyOnCourt: [5, 13],
+      },
+      {
+        name: 'HaCarmel Park Tennis Courts', lat: 32.7855, lng: 34.9890, live: false,
+        sport: 'Tennis', distance: '95.5 km',
+        price: 'Free', openHours: '07:00 – 20:00', peakHours: '08:00 – 12:00',
+        lightsOut: 'No lights', lightingHours: 'No Lighting', hasShade: true,
+        crowdLevel: 'Low', totalCourts: 2, openCourts: 0, currentPlayers: 0, avgRating: 58,
+        playersCurrentlyOnCourt: [],
+      },
+      /* ── Beer Sheva ── */
+      {
+        name: 'Beer Sheva Basketball Central', lat: 31.2529, lng: 34.7915, live: true,
+        sport: 'Basketball', distance: '88 km',
+        price: 'Free', openHours: '07:00 – 22:00', peakHours: '16:00 – 20:00',
+        lightsOut: '22:00', lightingHours: 'Until 22:00', hasShade: false,
+        crowdLevel: 'Medium', totalCourts: 2, openCourts: 2, currentPlayers: 7, avgRating: 63,
+        playersCurrentlyOnCourt: [32, 41],
+      },
+      {
+        name: 'Ben Gurion University Courts', lat: 31.2614, lng: 34.7992, live: false,
+        sport: 'Football', distance: '87 km',
+        price: 'Free', openHours: '08:00 – 21:00', peakHours: '17:00 – 20:00',
+        lightsOut: '21:00', lightingHours: 'Until 21:00', hasShade: true,
+        crowdLevel: 'Low', totalCourts: 1, openCourts: 0, currentPlayers: 0, avgRating: 55,
+        playersCurrentlyOnCourt: [],
+      },
+    ];
+
+    /* ── Match Lobbies (LFG) — joinedPlayers uses player id ── */
+    const MATCH_LOBBIES = [
+      {
+        id: 1, sport: 'Padel', courtIndex: 0, time: '18:30',
+        format: '2v2', missingPlayers: 1, avgRating: 87, avgAge: 29,
+        joinedPlayers: [2, 3, 4],
+      },
+      {
+        id: 2, sport: 'Football', courtIndex: 5, time: '19:00',
+        format: '5v5', missingPlayers: 3, avgRating: 61, avgAge: 25,
+        joinedPlayers: [25, 26, 27, 28, 29, 30, 31],
+      },
+      {
+        id: 3, sport: 'Padel', courtIndex: 2, time: '20:00',
+        format: '2v2', missingPlayers: 2, avgRating: 76, avgAge: 31,
+        joinedPlayers: [11, 12, 13],
+      },
+      {
+        id: 4, sport: 'Basketball', courtIndex: 3, time: '21:00',
+        format: '3v3', missingPlayers: 1, avgRating: 57, avgAge: 24,
+        joinedPlayers: [32, 33, 34, 35, 36],
+      },
+      {
+        id: 5, sport: 'Tennis', courtIndex: 1, time: '17:00',
+        format: '1v1', missingPlayers: 1, avgRating: 63, avgAge: 27,
+        joinedPlayers: [8],
+      },
+      {
+        id: 6, sport: 'Padel', courtIndex: 0, time: '09:00',
+        format: '2v2', missingPlayers: 4, avgRating: 91, avgAge: 26,
+        joinedPlayers: [4, 5, 6, 7],
+      },
+      {
+        id: 7, sport: 'Table Tennis', courtIndex: 1, time: '16:00',
+        format: '1v1', missingPlayers: 1, avgRating: 70, avgAge: 30,
+        joinedPlayers: [37, 38],
+      },
+    ];
+
+    const DARK_TILES = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+    const TILE_ATTR  = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
+
+    function addCourtMarkers(map) {
+      COURTS.forEach((c, index) => {
+        const color = c.live ? '#39FF14' : '#0d5200';
+        L.circleMarker([c.lat, c.lng], {
+          radius: c.live ? 9 : 6,
+          fillColor: color,
+          color: color,
+          weight: 2,
+          opacity: 0.9,
+          fillOpacity: c.live ? 0.75 : 0.45,
+        })
+        .addTo(map)
+        .bindTooltip(c.name, {
+          permanent: false,
+          direction: 'top',
+          offset: [0, -6],
+          className: 'leaflet-tooltip-sportout',
+        })
+        .on('click', () => showCourtDetail(index));
+      });
+    }
+
+    let _feedMap       = null;
+    let _courtsMap     = null;
+    let _fullscreenMap = null;
+
+    function initLeafletMaps() {
+      _feedMap = L.map('feed-map', { zoomControl: false, attributionControl: false })
+        .setView([32.085, 34.786], 13);
+      L.tileLayer(DARK_TILES, { maxZoom: 19, attribution: TILE_ATTR }).addTo(_feedMap);
+      addCourtMarkers(_feedMap);
+
+      _courtsMap = L.map('courts-mini-map', {
+        zoomControl: false, attributionControl: false,
+        dragging: false, scrollWheelZoom: false, doubleClickZoom: false,
+      }).setView([32.085, 34.786], 12);
+      L.tileLayer(DARK_TILES, { maxZoom: 19, attribution: TILE_ATTR }).addTo(_courtsMap);
+      addCourtMarkers(_courtsMap);
+    }
+
+    initLeafletMaps();
+
+
+    /* ── Navigation ── */
+    const TAB_LABELS = {
+      feed: 'Feed', courts: 'Courts', matches: 'Matches',
+      rankings: 'Rankings', profile: 'Profile'
+    };
+
+    function navigateTo(tab) {
+      document.querySelectorAll('[data-section]').forEach(sec => {
+        if (sec.dataset.section === tab) {
+          sec.classList.remove('hidden', 'section-enter');
+          void sec.offsetWidth;
+          sec.classList.add('section-enter');
+          if (tab === 'courts' && _courtsMap) {
+            setTimeout(() => _courtsMap.invalidateSize(), 60);
+          }
+        } else {
+          sec.classList.add('hidden');
+        }
+      });
+
+      const titleEl = document.getElementById('header-title');
+      if (titleEl) titleEl.textContent = TAB_LABELS[tab] || '';
+
+      document.querySelectorAll('[data-tab]').forEach(btn => {
+        const wrap      = btn.querySelector('.nav-icon-wrap');
+        const icon      = btn.querySelector('.nav-icon');
+        const label     = btn.querySelector('.nav-label');
+        const active    = btn.dataset.tab === tab;
+        const isSidebar = btn.classList.contains('nav-sidebar-item');
+
+        if (active) {
+          icon.classList.add('text-teal-glow');
+          icon.classList.remove('text-white/40');
+          label.classList.add('text-teal-glow', 'font-semibold');
+          label.classList.remove('text-white/35', 'font-medium');
+          if (isSidebar) {
+            btn.classList.add('bg-teal-glow/10', 'border', 'border-teal-glow/20');
+          } else {
+            wrap.classList.add('bg-teal-glow/15', 'border', 'border-teal-glow/40',
+                               'nav-active', 'shadow-teal-glow-sm');
+          }
+        } else {
+          icon.classList.remove('text-teal-glow');
+          icon.classList.add('text-white/40');
+          label.classList.remove('text-teal-glow', 'font-semibold');
+          label.classList.add('text-white/35', 'font-medium');
+          if (isSidebar) {
+            btn.classList.remove('bg-teal-glow/10', 'border', 'border-teal-glow/20');
+          } else {
+            wrap.classList.remove('bg-teal-glow/15', 'border', 'border-teal-glow/40',
+                                  'nav-active', 'shadow-teal-glow-sm');
+          }
+        }
+      });
+    }
+
+
+    /* ── Rankings podium renderer (dynamic, all sports) ── */
+    function renderPodium(top3) {
+      const podium = document.getElementById('rankings-podium');
+      if (!top3 || top3.length === 0) {
+        podium.style.display = 'none';
+        return;
+      }
+      podium.style.display = '';
+      const first  = top3[0] || null;
+      const second = top3[1] || null;
+      const third  = top3[2] || null;
+
+      function podiumSlot(p, medal, barH, avatarSize, ringCls, barCls, nameCls, ratingCls) {
+        if (!p) return `<div class="flex-1"></div>`;
+        const firstName = p.name.split(' ')[0];
+        return `
+          <div onclick="showPlayerDetail(${p.id})"
+               class="flex-1 flex flex-col items-center gap-1 cursor-pointer active:scale-95 transition-transform">
+            <div class="${avatarSize} rounded-full ${ringCls} flex items-center justify-center">
+              <span class="font-bold ${nameCls}">${p.initial}</span>
+            </div>
+            <p class="${nameCls} text-[10px] font-semibold truncate w-full text-center px-1 leading-tight">${firstName}</p>
+            <div class="w-full ${barH} rounded-t-xl ${barCls} flex flex-col items-center justify-end pb-2 gap-0.5">
+              <span class="${nameCls} text-[10px] font-semibold opacity-70">${medal}</span>
+              <span class="${ratingCls} text-xs font-extrabold tabular-nums">${p._rating}</span>
+            </div>
+          </div>`;
+      }
+
+      // Order: 2nd · 1st · 3rd
+      podium.innerHTML =
+        podiumSlot(second, '🥈 2nd', 'h-16', 'w-12 h-12',
+          'bg-navy-700 border-2 border-white/20',
+          'bg-navy-800 border border-white/8',
+          'text-white/55', 'text-white/55') +
+        podiumSlot(first,  '🥇 1st', 'h-24', 'w-14 h-14',
+          'bg-teal-glow/15 border-2 border-teal-glow/60 shadow-teal-glow-sm',
+          'bg-teal-glow/10 border border-teal-glow/30',
+          'text-teal-glow', 'text-teal-glow') +
+        podiumSlot(third,  '🥉 3rd', 'h-12', 'w-12 h-12',
+          'bg-navy-700 border-2 border-white/20',
+          'bg-navy-800 border border-white/8',
+          'text-white/55', 'text-white/55');
+    }
+
+
+    /* ── Leaderboard filter state ── */
+    let _activeFilters = { sport: 'all', region: 'all', following: false };
+
+    /* ── Unified leaderboard renderer — sequential re-indexing on every filter ── */
+    function filterLeaderboard(opts) {
+      Object.assign(_activeFilters, opts || {});
+      const { sport, region, following } = _activeFilters;
+
+      // Sync sport chip active states
+      document.querySelectorAll('.sport-chip').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.sport === sport);
+      });
+      // Sync region chip active states
+      document.querySelectorAll('.region-chip').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.region === region);
+      });
+      // Sync following chip
+      const followChip = document.getElementById('following-chip');
+      if (followChip) {
+        followChip.classList.toggle('active', following);
+        followChip.classList.toggle('following-active', following);
+      }
+
+      // 1. Sport filter
+      let raw = sport === 'all'
+        ? [...PLAYERS]
+        : PLAYERS.filter(p => p.sportsProfiles.some(sp => sp.sport.toLowerCase().replace(/\s+/g,'') === sport));
+
+      // 2. Region filter (maps chip key → player city, case/space normalised)
+      if (region !== 'all') {
+        raw = raw.filter(p => p.city && p.city.toLowerCase().replace(/\s+/g,'') === region);
+      }
+
+      // 3. Following filter
+      if (following) {
+        raw = raw.filter(p => p.isFollowedByMe);
+      }
+
+      // Attach rendering helpers and sort descending by rating
+      const filtered = raw.map(p => {
+        const sp = sport === 'all'
+          ? p.sportsProfiles.reduce((best, s) => s.rating > best.rating ? s : best, p.sportsProfiles[0])
+          : p.sportsProfiles.find(s => s.sport.toLowerCase().replace(/\s+/g,'') === sport) || p.sportsProfiles[0];
+        return { ...p, _rating: sp.rating, _sport: sp.sport };
+      }).sort((a, b) => b._rating - a._rating);
+
+      // Dynamic section title
+      const titleEl = document.getElementById('rankings-title');
+      if (titleEl) {
+        let label = 'Top Players';
+        if (following && filtered.length > 0) label = 'Top Following';
+        else if (sport !== 'all' && filtered.length > 0) label = `Top ${filtered[0]._sport} Players`;
+        titleEl.textContent = label;
+      }
+
+      // Podium always reflects the current top-3 of the active filter
+      renderPodium(filtered.slice(0, 3));
+
+      // List: ranks 4+ with sequential numbering starting from 4
+      const container = document.getElementById('rankings-list');
+      const listPlayers = filtered.slice(3);
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="py-10 flex flex-col items-center gap-2">
+            <p class="text-white/30 text-sm font-medium">No players found</p>
+            <p class="text-white/20 text-xs">Try a different filter combination</p>
+          </div>`;
+      } else if (listPlayers.length === 0) {
+        container.innerHTML = '';
+      } else {
+        container.innerHTML = listPlayers.map((p, i) => {
+          const seqRank  = i + 4;
+          const sportKey = p._sport.toLowerCase().replace(/\s+/g, '');
+          return `
+            <div class="player-row flex items-center gap-3 px-4 py-3 rounded-2xl bg-navy-800 border border-white/5
+                        cursor-pointer hover:border-teal-glow/25 active:scale-[0.98] transition-all"
+                 data-sport="${sportKey}" onclick="showPlayerDetail(${p.id})">
+              <span class="rank-num text-white/25 text-xs w-5 text-center font-mono">${seqRank}</span>
+              <div class="w-8 h-8 rounded-full bg-navy-700 border border-white/10
+                          flex items-center justify-center flex-shrink-0">
+                <span class="text-xs font-bold text-white/50">${p.initial}</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-white/80 text-sm font-semibold truncate">${p.name}</p>
+                <p class="text-white/30 text-xs">${p._sport}</p>
+              </div>
+              <span class="text-teal-glow text-sm font-bold">${p._rating}</span>
+            </div>`;
+        }).join('');
+      }
+    }
+
+    /* ── Thin wrappers so existing onclick handlers keep working ── */
+    function filterBySport(sport) { filterLeaderboard({ sport }); }
+    function filterByRegion(region) { filterLeaderboard({ region }); }
+    function toggleFollowingFilter() { filterLeaderboard({ following: !_activeFilters.following }); }
+
+
+    /* ── Performance stats renderer ── */
+    function renderStatsPanel(p, activeProfile) {
+      // Support new sportsProfiles structure
+      const prof = activeProfile || (p.sportsProfiles && p.sportsProfiles[0]);
+      if (!prof) return '';
+      const g = {
+        tier: prof.tier, mvpCount: prof.mvpCount, fairPlay: prof.fairPlay,
+        reliability: prof.reliability, position: prof.position,
+        age: p.age, height: p.height, bodyType: p.bodyType, dominantLimb: p.dominantLimb,
+      };
+      const sp    = prof.stats;
+      const sport = prof.sport.toLowerCase();
+
+      const TIER_CLS = {
+        'Elite':  'text-yellow-300 bg-yellow-300/10 border-yellow-300/40',
+        'Gold':   'text-amber-400  bg-amber-400/10  border-amber-400/35',
+        'Silver': 'text-slate-300  bg-slate-300/8   border-slate-300/20',
+        'Bronze': 'text-orange-400 bg-orange-400/10 border-orange-400/30',
+      };
+      const tierCls = TIER_CLS[g.tier] || TIER_CLS['Bronze'];
+
+      /* ─ Community & Biometrics block ─ */
+      let html = `
+        <div class="border-b border-white/5">
+          <div class="flex items-center gap-2 px-4 pt-4 pb-3">
+            <span class="text-[9px] font-black tracking-widest uppercase px-2 py-0.5 rounded border ${tierCls}">${g.tier}</span>
+            <span class="text-white/25 text-xs">·</span>
+            <span class="text-white/50 text-xs font-medium">${g.position}</span>
+          </div>
+          <div class="grid grid-cols-4 gap-1.5 px-4 pb-3">
+            <div class="bg-navy-800 border border-white/5 rounded-xl p-2.5 text-center">
+              <p class="text-teal-glow font-bold text-sm leading-tight">${g.reliability}</p>
+              <p class="text-white/30 text-[9px] mt-0.5 leading-tight">Reliability</p>
+            </div>
+            <div class="bg-navy-800 border border-white/5 rounded-xl p-2.5 text-center">
+              <p class="text-white font-bold text-sm leading-tight">${g.fairPlay.toFixed(1)}</p>
+              <p class="text-white/30 text-[9px] mt-0.5 leading-tight">Fair Play</p>
+            </div>
+            <div class="bg-navy-800 border border-white/5 rounded-xl p-2.5 text-center">
+              <p class="text-white font-bold text-sm leading-tight">${g.mvpCount}</p>
+              <p class="text-white/30 text-[9px] mt-0.5 leading-tight">MVPs</p>
+            </div>
+            <div class="bg-navy-800 border border-white/5 rounded-xl p-2.5 text-center">
+              <p class="text-white font-bold text-sm leading-tight">${g.age}</p>
+              <p class="text-white/30 text-[9px] mt-0.5 leading-tight">Age</p>
+            </div>
+          </div>
+          <div class="flex gap-1.5 px-4 pb-4">
+            <div class="flex-1 bg-navy-800 border border-white/5 rounded-xl px-2.5 py-2 flex items-center justify-between gap-1">
+              <span class="text-white/30 text-[9px] font-semibold tracking-wide">HT</span>
+              <span class="text-white font-semibold text-xs">${g.height}</span>
+            </div>
+            <div class="flex-1 bg-navy-800 border border-white/5 rounded-xl px-2.5 py-2 flex items-center justify-between gap-1">
+              <span class="text-white/30 text-[9px] font-semibold tracking-wide">BUILD</span>
+              <span class="text-white font-semibold text-xs">${g.bodyType}</span>
+            </div>
+            <div class="flex-1 bg-navy-800 border border-white/5 rounded-xl px-2.5 py-2 flex items-center justify-between gap-1">
+              <span class="text-white/30 text-[9px] font-semibold tracking-wide">LIMB</span>
+              <span class="text-white font-semibold text-xs">${g.dominantLimb}</span>
+            </div>
+          </div>
+        </div>`;
+
+      /* ─ Sport-specific attributes block ─ */
+      if (sport === 'football') {
+        const attrs = [
+          { key:'PAC', val:sp.pace },
+          { key:'SHO', val:sp.shooting },
+          { key:'PAS', val:sp.passing },
+          { key:'DRI', val:sp.dribbling },
+          { key:'DEF', val:sp.defending },
+          { key:'PHY', val:sp.physicality },
+        ];
+        html += `
+        <div class="px-4 pt-4 pb-2">
+          <p class="text-white/30 text-[9px] font-semibold tracking-widest uppercase mb-3">Attributes</p>
+          <div class="flex flex-col gap-3">
+            ${attrs.map(a => `
+              <div class="flex items-center gap-3">
+                <span class="text-white/40 text-[11px] font-bold w-7">${a.key}</span>
+                <div class="flex-1 h-1 rounded-full bg-navy-700 overflow-hidden">
+                  <div class="h-full rounded-full bg-teal-glow transition-all" style="width:${a.val}%"></div>
+                </div>
+                <span class="text-white font-bold text-sm w-6 text-right tabular-nums">${a.val}</span>
+              </div>`).join('')}
+          </div>
+          <div class="flex mt-4 pt-3 border-t border-white/5 gap-3">
+            <div class="flex-1 bg-navy-800 border border-white/5 rounded-xl p-3 text-center">
+              <p class="text-teal-glow font-bold text-lg leading-tight">${sp.goals}</p>
+              <p class="text-white/30 text-[10px] mt-0.5">Goals</p>
+            </div>
+            <div class="flex-1 bg-navy-800 border border-white/5 rounded-xl p-3 text-center">
+              <p class="text-teal-glow font-bold text-lg leading-tight">${sp.assists}</p>
+              <p class="text-white/30 text-[10px] mt-0.5">Assists</p>
+            </div>
+          </div>
+        </div>`;
+
+      } else if (sport === 'basketball') {
+        const boxes = [
+          { label:'PPG', val:sp.ppg.toFixed(1) },
+          { label:'APG', val:sp.apg.toFixed(1) },
+          { label:'RPG', val:sp.rpg.toFixed(1) },
+          { label:'FG%', val:sp.fg_pct },
+          { label:'STL', val:sp.steals.toFixed(1) },
+          { label:'BLK', val:sp.blocks.toFixed(1) },
+        ];
+        html += `
+        <div class="px-4 pt-4 pb-2">
+          <p class="text-white/30 text-[9px] font-semibold tracking-widest uppercase mb-3">Box Score</p>
+          <div class="grid grid-cols-3 gap-1.5">
+            ${boxes.map(b => `
+              <div class="bg-navy-800 border border-white/5 rounded-xl p-3 text-center">
+                <p class="text-teal-glow font-bold text-base leading-tight">${b.val}</p>
+                <p class="text-white/30 text-[10px] mt-0.5">${b.label}</p>
+              </div>`).join('')}
+          </div>
+        </div>`;
+
+      } else {
+        /* Padel / Tennis */
+        const attrs = [
+          { key:'ACES',    val:sp.aces,           pct: Math.min(100, Math.round(sp.aces)),           raw:true },
+          { key:'SMASH',   val:sp.smash_power,     pct: sp.smash_power,                               raw:false },
+          { key:'STAMINA', val:sp.stamina,          pct: sp.stamina,                                   raw:false },
+          { key:'ERRORS',  val:sp.unforced_errors,  pct: Math.max(0, 100 - Math.round(sp.unforced_errors / 60 * 100)), raw:true },
+        ];
+        html += `
+        <div class="px-4 pt-4 pb-2">
+          <p class="text-white/30 text-[9px] font-semibold tracking-widest uppercase mb-3">Attributes</p>
+          <div class="flex flex-col gap-3">
+            ${attrs.map(a => `
+              <div class="flex items-center gap-3">
+                <span class="text-white/40 text-[11px] font-bold w-14">${a.key}</span>
+                <div class="flex-1 h-1 rounded-full bg-navy-700 overflow-hidden">
+                  <div class="h-full rounded-full bg-teal-glow transition-all" style="width:${a.pct}%"></div>
+                </div>
+                <span class="text-white font-bold text-sm w-6 text-right tabular-nums">${a.val}</span>
+              </div>`).join('')}
+          </div>
+        </div>`;
+      }
+
+      return html;
+    }
+
+
+    /* ── Social follower helpers (scale to 1000-player pool by global rank) ── */
+    // Power-law distribution: rank-1 ≈ 35% of pool, rank-40 ≈ 15, rank-1000 ≈ 1
+    function getFollowers(id) {
+      const rank = getGlobalRank(id);
+      const n    = PLAYERS.length;
+      const max  = Math.round(0.35 * n);          // rank-1 cap: 35% of player count
+      return Math.max(1, Math.round(max * Math.pow(rank, -0.848)));
+    }
+    // Top players follow ~30 accounts; bottom players follow ~180
+    function getFollowing(id) {
+      const rank = getGlobalRank(id);
+      const n    = PLAYERS.length;
+      return Math.round(30 + 150 * ((rank - 1) / Math.max(1, n - 1)));
+    }
+    function fmtSocial(n) {
+      return n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n);
+    }
+
+
+    /* ── Sport-context helpers ── */
+    let _currentDetailPlayer = null;
+
+    function _tabCls(active) {
+      return 'sport-tab-btn flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ' + (
+        active
+          ? 'bg-teal-glow text-navy-950 border-teal-glow shadow-teal-glow-sm'
+          : 'bg-navy-800 text-white/50 border-white/10 hover:text-white/80'
+      );
+    }
+
+    function renderSportContext(sportName, playerData) {
+      const p = playerData || _currentDetailPlayer;
+      if (!p) return;
+      _currentDetailPlayer = p;
+
+      const prof = p.sportsProfiles.find(sp => sp.sport === sportName) || p.sportsProfiles[0];
+
+      // Refresh tab active states
+      document.querySelectorAll('#pd-sport-tabs .sport-tab-btn').forEach(btn => {
+        btn.className = _tabCls(btn.dataset.sport === sportName);
+      });
+
+      // Update hero stats
+      document.getElementById('pd-rating').textContent  = prof.rating;
+      document.getElementById('pd-wins').textContent    = prof.wins;
+      document.getElementById('pd-losses').textContent  = prof.losses;
+
+      // Update stats panel
+      document.getElementById('pd-stats-panel').innerHTML = renderStatsPanel(p, prof);
+
+      // Update highlights grid
+      const videoKey = prof.sport.toLowerCase();
+      const videos   = SPORT_VIDEOS[videoKey] || SPORT_VIDEOS.padel;
+      document.getElementById('pd-highlights-grid').innerHTML = videos.map(vid => `
+        <div class="relative aspect-square bg-navy-900">
+          <iframe class="absolute inset-0 w-full h-full object-cover pointer-events-none"
+            src="https://www.youtube.com/embed/${vid}?controls=0&modestbranding=1&mute=1&autoplay=0"
+            frameborder="0" allowfullscreen></iframe>
+        </div>`).join('');
+    }
+
+
+    /* ── Player detail ── */
+    function showPlayerDetail(id) {
+      const p = getPlayer(id);
+      if (!p) return;
+
+      const primaryProfile = p.sportsProfiles[0];
+      const sportNames = p.sportsProfiles.map(sp => sp.sport).join(' & ');
+
+      document.getElementById('pd-title').textContent     = p.name;
+      document.getElementById('pd-initial').textContent   = p.initial;
+      document.getElementById('pd-name').textContent      = p.name;
+      document.getElementById('pd-bio').textContent       = p.bio || '';
+      document.getElementById('pd-meta').textContent      = sportNames + ' Player · ' + (p.city || 'Tel Aviv');
+      document.getElementById('pd-followers').textContent = fmtSocial(p.followersCount);
+      document.getElementById('pd-following').textContent = fmtSocial(p.followingCount);
+
+      // Badges
+      const badgesEl = document.getElementById('pd-badges');
+      if (p.badges && p.badges.length > 0) {
+        badgesEl.innerHTML = p.badges.map(b =>
+          `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold
+                        bg-teal-glow/8 border border-teal-glow/20 text-teal-glow/80">${b}</span>`
+        ).join('');
+        badgesEl.style.display = '';
+      } else {
+        badgesEl.innerHTML = '';
+        badgesEl.style.display = 'none';
+      }
+
+      // Sport toggle tabs (only for multi-sport players)
+      const tabsEl = document.getElementById('pd-sport-tabs');
+      if (p.sportsProfiles.length > 1) {
+        tabsEl.innerHTML = p.sportsProfiles.map((sp, i) =>
+          `<button class="${_tabCls(i === 0)}"
+                   data-sport="${sp.sport}"
+                   onclick="renderSportContext('${sp.sport}')">
+             ${_SEMOJI[sp.sport] || '🏅'} ${sp.sport}
+           </button>`
+        ).join('');
+        tabsEl.classList.remove('hidden');
+      } else {
+        tabsEl.innerHTML = '';
+        tabsEl.classList.add('hidden');
+      }
+
+      // Delegate stats + highlights to renderSportContext (sets _currentDetailPlayer too)
+      renderSportContext(primaryProfile.sport, p);
+
+      // Follow button — render state from player data
+      const followBtn = document.getElementById('pd-follow-btn');
+      if (p.isFollowedByMe) {
+        followBtn.textContent       = 'Following';
+        followBtn.style.background  = 'rgba(57,255,20,0.25)';
+        followBtn.style.borderColor = 'rgba(57,255,20,0.6)';
+        followBtn.style.color       = '#39FF14';
+      } else {
+        followBtn.textContent       = 'Follow';
+        followBtn.style.background  = '';
+        followBtn.style.borderColor = '';
+        followBtn.style.color       = '';
+      }
+
+      const overlay = document.getElementById('player-detail-overlay');
+      overlay.scrollTop = 0;
+      overlay.classList.add('pd-open');
+    }
+
+    function hidePlayerDetail() {
+      document.getElementById('player-detail-overlay').classList.remove('pd-open');
+    }
+
+    /* ── Matches tab — LFG feed ── */
+    const SPORT_EMOJI = {
+      'Padel':'🎾', 'Tennis':'🎾', 'Football':'⚽',
+      'Basketball':'🏀', 'Table Tennis':'🏓', 'Footvolley':'🏐', 'Boxing':'🥊',
+    };
+
+    function renderMatchesTab() {
+      const feed = document.getElementById('matches-feed');
+      if (!feed) return;
+
+      feed.innerHTML = MATCH_LOBBIES.map(m => {
+        const court = COURTS[m.courtIndex] || {};
+        const emoji = SPORT_EMOJI[m.sport] || '🎯';
+        const n = m.missingPlayers;
+
+        // Color urgency: 4+ → red, 2-3 → amber/orange, 1 → teal
+        let badgeCls;
+        if (n >= 4) {
+          badgeCls = 'bg-red-500/20 border border-red-500/40 text-red-500';
+        } else if (n >= 2) {
+          badgeCls = 'bg-amber-500/15 border border-amber-400/40 text-amber-400';
+        } else {
+          badgeCls = 'bg-teal-glow/10 border border-teal-glow/30 text-teal-glow';
+        }
+
+        const neededText = n === 1 ? '1 Player Needed' : `${n} Players Needed`;
+
+        // Avatar stack — up to 4 shown, then +N
+        const shown   = m.joinedPlayers.slice(0, 4);
+        const extra   = m.joinedPlayers.length - shown.length;
+        const avatars = shown.map(pid => {
+          const p = getPlayer(pid);
+          if (!p) return '';
+          return `<div class="w-9 h-9 rounded-full bg-navy-700 border-2 border-navy-900
+                              flex items-center justify-center -ml-2 first:ml-0 flex-shrink-0">
+                    <span class="text-xs font-bold text-teal-glow">${p.initial}</span>
+                  </div>`;
+        }).join('');
+        const extraEl = extra > 0
+          ? `<div class="w-9 h-9 rounded-full bg-navy-800 border-2 border-navy-900
+                         flex items-center justify-center -ml-2 flex-shrink-0">
+               <span class="text-[10px] font-bold text-white/35">+${extra}</span>
+             </div>`
+          : '';
+
+        return `
+          <div onclick="showMatchDetail(${m.id})"
+               class="w-full rounded-2xl bg-navy-800 border border-white/5 shadow-card p-4
+                      cursor-pointer hover:border-teal-glow/30 active:scale-[0.98] transition-all">
+
+            <!-- Top row: sport label + format + time + needed badge -->
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center gap-2">
+                <span class="text-base leading-none">${emoji}</span>
+                <span class="text-white font-semibold text-sm">${m.sport}</span>
+                <span class="text-white/20 text-xs">·</span>
+                <span class="text-white/40 text-xs font-medium">${m.format}</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-white/30 text-xs font-mono">${m.time}</span>
+                <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold ${badgeCls}">
+                  ${neededText}
+                </span>
+              </div>
+            </div>
+
+            <!-- Court name -->
+            <p class="text-white/45 text-xs mb-3 flex items-center gap-1.5">
+              <svg class="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+              ${court.name || 'Unknown Court'}
+            </p>
+
+            <!-- Bottom row: avatar stack + rating/age stats -->
+            <div class="flex items-center justify-between">
+              <div class="flex items-center pl-2">${avatars}${extraEl}</div>
+              <div class="flex items-center gap-3">
+                <div class="text-center">
+                  <p class="text-teal-glow font-bold text-sm leading-tight tabular-nums">${m.avgRating}</p>
+                  <p class="text-white/30 text-[9px]">Avg Rating</p>
+                </div>
+                <div class="w-px h-6 bg-white/8"></div>
+                <div class="text-center">
+                  <p class="text-white font-bold text-sm leading-tight tabular-nums">${m.avgAge}</p>
+                  <p class="text-white/30 text-[9px]">Avg Age</p>
+                </div>
+              </div>
+            </div>
+
+          </div>`;
+      }).join('');
+    }
+
+
+    /* ── Match detail overlay ── */
+    function showMatchDetail(id) {
+      const m = MATCH_LOBBIES.find(x => x.id === id);
+      if (!m) return;
+      const court = COURTS[m.courtIndex];
+
+      document.getElementById('md-sport').textContent     = m.sport;
+      document.getElementById('md-time').textContent      = m.time;
+      document.getElementById('md-format').textContent    = m.format;
+      document.getElementById('md-missing').textContent   = m.missingPlayers === 1 ? '1 Needed' : `${m.missingPlayers} Needed`;
+      document.getElementById('md-avg-rating').textContent = m.avgRating;
+      document.getElementById('md-avg-age').textContent   = m.avgAge;
+
+      // Clickable court name
+      const courtNameEl = document.getElementById('md-court-name');
+      const courtBtn    = document.getElementById('md-court-btn');
+      courtNameEl.textContent = court ? court.name : '—';
+      courtBtn.onclick = court ? () => showCourtDetail(m.courtIndex) : null;
+
+      // Roster
+      document.getElementById('md-roster').innerHTML = m.joinedPlayers.map(pid => {
+        const p = getPlayer(pid);
+        if (!p) return '';
+        const topRating = Math.max(...p.sportsProfiles.map(sp => sp.rating));
+        return `
+          <div onclick="showPlayerDetail(${pid})"
+               class="flex flex-col items-center gap-1.5 cursor-pointer active:scale-95 transition-transform">
+            <div class="w-14 h-14 rounded-full bg-navy-700 border-2 border-white/10
+                        flex items-center justify-center
+                        hover:border-teal-glow/50 transition-colors">
+              <span class="text-lg font-bold text-teal-glow">${p.initial}</span>
+            </div>
+            <span class="text-white/50 text-[10px] font-medium truncate w-16 text-center">${p.name.split(' ')[0]}</span>
+            <span class="text-teal-glow text-[10px] font-bold tabular-nums">${topRating}</span>
+          </div>`;
+      }).join('');
+
+      const overlay = document.getElementById('match-detail-overlay');
+      overlay.scrollTop = 0;
+      overlay.classList.add('md-open');
+    }
+
+    function hideMatchDetail() {
+      document.getElementById('match-detail-overlay').classList.remove('md-open');
+    }
+
+
+    /* ── Create match overlay ── */
+    function showCreateMatch() {
+      const overlay = document.getElementById('create-match-overlay');
+      overlay.scrollTop = 0;
+      overlay.classList.add('cm-open');
+    }
+
+    function hideCreateMatch() {
+      document.getElementById('create-match-overlay').classList.remove('cm-open');
+    }
+
+    function selectCmSport(btn, sport) {
+      btn.closest('.flex').parentElement.querySelectorAll('.cm-sport-btn').forEach(b => b.classList.remove('active'));
+      // Also check sibling row
+      btn.closest('[class*="flex flex-col"]') && btn.closest('[class*="flex flex-col"]')
+        .querySelectorAll('.cm-sport-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.cm-sport-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+
+    function selectCmFormat(btn, fmt) {
+      document.querySelectorAll('.cm-format-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+
+    function publishMatch() {
+      hideCreateMatch();
+      showToast('Match published! Players will be notified');
+    }
+
+
+    /* ── My Profile stats panel ── */
+    function renderMyProfile() {
+      const me = getPlayer(2); // Ron — id 2
+      if (!me) return;
+      const primaryProfile = me.sportsProfiles[0];
+
+      // Dynamic rating display
+      const ratingEl = document.getElementById('my-profile-rating');
+      if (ratingEl) ratingEl.textContent = primaryProfile.rating;
+
+      // Sport toggle tabs (multi-sport)
+      const myTabsEl = document.getElementById('my-sport-tabs');
+      if (myTabsEl && me.sportsProfiles.length > 1) {
+        myTabsEl.innerHTML = me.sportsProfiles.map((sp, i) =>
+          `<button class="${_tabCls(i === 0)}"
+                   data-sport="${sp.sport}"
+                   onclick="switchMyProfileSport('${sp.sport}')">
+             ${_SEMOJI[sp.sport] || '🏅'} ${sp.sport}
+           </button>`
+        ).join('');
+        myTabsEl.classList.remove('hidden');
+      }
+
+      document.getElementById('my-stats-panel').innerHTML =
+        `<div class="rounded-2xl bg-navy-800 border border-white/5 shadow-card overflow-hidden">${renderStatsPanel(me, primaryProfile)}</div>`;
+    }
+
+    function switchMyProfileSport(sportName) {
+      const me = getPlayer(2);
+      if (!me) return;
+      const prof = me.sportsProfiles.find(sp => sp.sport === sportName) || me.sportsProfiles[0];
+
+      // Update tab active states
+      document.querySelectorAll('#my-sport-tabs .sport-tab-btn').forEach(btn => {
+        btn.className = _tabCls(btn.dataset.sport === sportName);
+      });
+
+      // Update rating
+      const ratingEl = document.getElementById('my-profile-rating');
+      if (ratingEl) ratingEl.textContent = prof.rating;
+
+      // Update stats panel
+      document.getElementById('my-stats-panel').innerHTML =
+        `<div class="rounded-2xl bg-navy-800 border border-white/5 shadow-card overflow-hidden">${renderStatsPanel(me, prof)}</div>`;
+    }
+
+    function toggleFollow(btn) {
+      const p = _currentDetailPlayer;
+      if (!p || p.id === 2) return; // no-op for the logged-in user
+
+      p.isFollowedByMe = !p.isFollowedByMe;
+
+      if (p.isFollowedByMe) {
+        p.followersCount++;
+        btn.textContent       = 'Following';
+        btn.style.background  = 'rgba(57,255,20,0.25)';
+        btn.style.borderColor = 'rgba(57,255,20,0.6)';
+        btn.style.color       = '#39FF14';
+      } else {
+        p.followersCount = Math.max(0, p.followersCount - 1);
+        btn.textContent       = 'Follow';
+        btn.style.background  = '';
+        btn.style.borderColor = '';
+        btn.style.color       = '';
+      }
+
+      // Live-update the counter visible on screen
+      const followersEl = document.getElementById('pd-followers');
+      if (followersEl) followersEl.textContent = fmtSocial(p.followersCount);
+    }
+
+
+    /* ── Haversine distance (km) between two lat/lng pairs ── */
+    function haversineKm(lat1, lng1, lat2, lng2) {
+      const R    = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLng = (lng2 - lng1) * Math.PI / 180;
+      const a    = Math.sin(dLat / 2) ** 2
+                 + Math.cos(lat1 * Math.PI / 180)
+                 * Math.cos(lat2 * Math.PI / 180)
+                 * Math.sin(dLng / 2) ** 2;
+      return R * 2 * Math.asin(Math.sqrt(a));
+    }
+
+    /* ── Render up to 10 nearest courts sorted by real distance ── */
+    function renderNearbyCourts(userLat, userLng) {
+      const sorted = COURTS
+        .map((c, i) => ({ ...c, _idx: i, _distKm: haversineKm(userLat, userLng, c.lat, c.lng) }))
+        .sort((a, b) => a._distKm - b._distKm)
+        .slice(0, 10);
+
+      const liveCount = sorted.filter(c => c.live).length;
+      const liveEl    = document.getElementById('nearby-live-count');
+      if (liveEl) liveEl.textContent = `${liveCount} live nearby`;
+
+      const container = document.getElementById('nearby-courts-list');
+      if (!container) return;
+
+      container.innerHTML = sorted.map(c => {
+        const km      = c._distKm;
+        const distStr = km < 0.1  ? 'Here'
+                      : km < 1    ? `${Math.round(km * 1000)} m`
+                      : km < 10   ? `${km.toFixed(1)} km`
+                      :             `${Math.round(km)} km`;
+
+        const iconBg   = c.live
+          ? 'bg-teal-glow/10 border-teal-glow/20'
+          : 'bg-navy-700 border-white/8';
+        const dotEl    = c.live
+          ? `<span class="w-2 h-2 rounded-full bg-teal-glow live-dot"></span>`
+          : `<span class="w-2 h-2 rounded-full bg-white/20"></span>`;
+        const liveBadge = c.live
+          ? `<span class="text-[9px] font-bold text-teal-glow bg-teal-glow/10 border border-teal-glow/30 px-1.5 py-0.5 rounded-full leading-none">LIVE</span>`
+          : '';
+        const subtitle = c.live
+          ? `${c.openCourts} open · ${distStr}`
+          : `Offline · ${distStr}`;
+
+        return `
+          <div onclick="showCourtDetail(${c._idx})"
+               class="flex-shrink-0 w-44 flex flex-col rounded-2xl bg-navy-800 border border-white/5
+                      p-4 cursor-pointer hover:border-teal-glow/30 active:scale-[0.97] transition-all shadow-card">
+            <div class="flex items-center justify-between mb-3">
+              <div class="w-9 h-9 rounded-xl ${iconBg} border flex items-center justify-center">
+                ${dotEl}
+              </div>
+              ${liveBadge}
+            </div>
+            <p class="text-white font-semibold text-sm leading-snug mb-1" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${c.name}</p>
+            <p class="text-white/40 text-xs">${c.sport}</p>
+            <p class="text-white/30 text-xs mt-auto pt-2">${subtitle}</p>
+          </div>`;
+      }).join('');
+    }
+
+    /* ── Boot: resolve user location then render nearby courts ── */
+    function initNearbyCourts() {
+      const fallback = () => renderNearbyCourts(32.0853, 34.7818); // Tel Aviv center
+      if (!navigator.geolocation) { fallback(); return; }
+      navigator.geolocation.getCurrentPosition(
+        pos => renderNearbyCourts(pos.coords.latitude, pos.coords.longitude),
+        fallback,
+        { timeout: 6000, maximumAge: 120000 }
+      );
+    }
+
+
+    /* ── Court detail ── */
+    function showCourtDetail(index) {
+      const c = COURTS[index];
+      if (!c) return;
+
+      document.getElementById('cd-title').textContent      = c.name;
+      document.getElementById('cd-players').textContent    = c.currentPlayers;
+      document.getElementById('cd-courts').textContent     = c.openCourts + '/' + c.totalCourts;
+      document.getElementById('cd-rating').textContent     = c.avgRating;
+      document.getElementById('cd-price').textContent      = c.price;
+      document.getElementById('cd-open-hours').textContent = c.openHours;
+      document.getElementById('cd-peak-hours').textContent = c.peakHours;
+      document.getElementById('cd-lights-out').textContent = c.lightsOut;
+      document.getElementById('cd-shade').textContent      = c.hasShade ? 'Available' : 'No shade';
+
+      const badge = document.getElementById('cd-live-badge');
+      if (c.live) {
+        badge.textContent  = 'LIVE';
+        badge.className    = 'text-[10px] font-bold px-2.5 py-1 rounded-full flex-shrink-0 bg-teal-glow/15 border border-teal-glow/40 text-teal-glow';
+      } else {
+        badge.textContent  = 'OFFLINE';
+        badge.className    = 'text-[10px] font-bold px-2.5 py-1 rounded-full flex-shrink-0 bg-white/5 border border-white/10 text-white/35';
+      }
+
+      /* Live on Court roster — privacy-filtered to followed players only */
+      const liveSection  = document.getElementById('cd-live-section');
+      const liveRoster   = document.getElementById('cd-live-roster');
+      const allOnCourt   = c.playersCurrentlyOnCourt || [];
+
+      if (allOnCourt.length === 0) {
+        liveSection.style.display = 'none';
+      } else {
+        liveSection.style.display = '';
+        // Only show avatars for players the current user follows
+        const followedOnCourt = allOnCourt.filter(pid => {
+          const p = getPlayer(pid);
+          return p && p.isFollowedByMe;
+        });
+
+        if (followedOnCourt.length === 0) {
+          liveRoster.innerHTML = `
+            <p class="text-white/25 text-xs py-1 italic">
+              ${allOnCourt.length} player${allOnCourt.length > 1 ? 's' : ''} on court —
+              follow them to see who's here
+            </p>`;
+        } else {
+          liveRoster.innerHTML = followedOnCourt.map(pid => {
+            const p = getPlayer(pid);
+            if (!p) return '';
+            const topTier   = p.sportsProfiles.reduce((best, sp) =>
+              sp.rating > best.rating ? sp : best, p.sportsProfiles[0]).tier;
+            const tierColor = topTier === 'Elite'  ? '#fde047'
+                            : topTier === 'Gold'   ? '#fbbf24'
+                            : topTier === 'Silver' ? '#cbd5e1'
+                            :                        '#fb923c';
+            return `
+              <button onclick="showPlayerDetail(${p.id})"
+                      class="flex flex-col items-center gap-1.5 flex-shrink-0 active:opacity-70 transition-opacity">
+                <div class="w-12 h-12 rounded-full bg-navy-700 border-2 flex items-center justify-center"
+                     style="border-color:${tierColor}40">
+                  <span class="text-sm font-bold" style="color:${tierColor}">${p.initial}</span>
+                </div>
+                <p class="text-white/60 text-[10px] font-medium w-12 truncate text-center">${p.name.split(' ')[0]}</p>
+              </button>`;
+          }).join('');
+        }
+      }
+
+      const overlay = document.getElementById('court-detail-overlay');
+      overlay.scrollTop = 0;
+      overlay.classList.add('cd-open');
+    }
+
+    function hideCourtDetail() {
+      document.getElementById('court-detail-overlay').classList.remove('cd-open');
+    }
+
+
+    /* ── Fullscreen map modal ── */
+    function openMapModal() {
+      const modal = document.getElementById('map-modal');
+      modal.classList.add('map-open');
+
+      if (!_fullscreenMap) {
+        _fullscreenMap = L.map('fullscreen-map', {
+          zoomControl: true,
+          attributionControl: false,
+        }).setView([32.085, 34.786], 14);
+        L.tileLayer(DARK_TILES, { maxZoom: 19, attribution: TILE_ATTR }).addTo(_fullscreenMap);
+        addCourtMarkers(_fullscreenMap);
+      }
+
+      setTimeout(() => _fullscreenMap.invalidateSize(), 60);
+    }
+
+    function closeMapModal() {
+      document.getElementById('map-modal').classList.remove('map-open');
+    }
+
+
+    // Boot — generate to 1000, build indexes, render
+    PLAYERS.push(...generateMockPlayers(1000 - PLAYERS.length));
+    buildPlayerIndex();
+    buildGlobalRankCache();
+    // Stamp social counts onto every player (must run after rank cache is built)
+    PLAYERS.forEach(p => {
+      p.followersCount = getFollowers(p.id);
+      p.followingCount = getFollowing(p.id);
+      if (p.id !== 2) p.isFollowedByMe = false; // Ron (id:2) is the logged-in user
+    });
+    navigateTo('feed');
+    renderMyProfile();
+    renderMatchesTab();
+    filterLeaderboard({});
+    initNearbyCourts();
+
+    /* ── Dynamic global stats ── */
+    (function updateDynamicStats() {
+      const totalPlayers = PLAYERS.length;
+      const totalCourts  = COURTS.length;
+      const liveCourts   = COURTS.filter(c => c.live).length;
+      const liveTxt      = liveCourts + ' Courts Live';
+
+      // Leaderboard cards on Feed
+      const tpEl = document.getElementById('stat-total-players');
+      if (tpEl) tpEl.innerHTML = totalPlayers >= 1000
+        ? `${(totalPlayers / 1000).toFixed(1)}<span class="text-base">k</span>`
+        : totalPlayers;
+      const tcEl = document.getElementById('stat-total-courts');
+      if (tcEl) tcEl.textContent = totalCourts;
+
+      // Live-count chips (feed map + fullscreen modal)
+      const feedLive = document.getElementById('feed-live-count');
+      if (feedLive) feedLive.textContent = liveTxt;
+      const mapLive  = document.getElementById('map-live-count');
+      if (mapLive)  mapLive.textContent  = liveTxt;
+
+      // "X live" label in Nearby Courts header
+      const nearbyLive = document.getElementById('nearby-live-count');
+      if (nearbyLive) nearbyLive.textContent = liveCourts + ' live';
+
+      // My Profile social stats (Ron = id 2) — read from stamped player object
+      const myFollowersEl = document.getElementById('my-followers');
+      const myFollowingEl = document.getElementById('my-following');
+      const ron = getPlayer(2);
+      if (myFollowersEl && ron) myFollowersEl.textContent = fmtSocial(ron.followersCount);
+      if (myFollowingEl && ron) myFollowingEl.textContent = fmtSocial(ron.followingCount);
+    })();
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,23 @@
+# Web framework
+fastapi==0.110.3
+uvicorn[standard]==0.30.6
+
+# Database
+sqlalchemy[asyncio]==2.0.36
+asyncpg==0.29.0
+alembic==1.13.3
+geoalchemy2==0.15.2
+
+# Pydantic
+pydantic==2.9.2
+pydantic-settings==2.5.2
+email-validator==2.2.0
+
+# Auth / Security
+PyJWT==2.9.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.2.0
+
+# Task queue (Celery worker — not used at server startup, but imported by app.workers)
+celery==5.4.0
+redis==5.1.1
