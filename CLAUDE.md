@@ -2,6 +2,27 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+<project_context>
+**Project:** SportOut
+**Mission:** A hardcore street sports platform for competitive players.
+**Current Phase:** Football MVP.
+**Core Feature:** "AI Combine" — A player evaluation system mapped to 4 pillars (Pace, Shooting, Dribbling, Technique). 
+**Methodology:** We currently use a "Wizard of Oz" approach. Users upload videos of specific drills, and admins manually score them via the backend. This manual scoring serves as ground-truth data for future Computer Vision (CV) training.
+**Vibe:** Elite, authentic street sports. 
+</project_context>
+
+<critical_rules>
+1. ASYNC FIRST: All I/O is async. ALWAYS use `async def` and `await` throughout the FastAPI/SQLAlchemy stack.
+2. IMMUTABLE RATING EVENTS: `RatingEvent` is append-only to allow algorithm replay. NEVER execute UPDATE or DELETE on rows in this table.
+3. SCHEMA SEPARATION: NEVER expose ORM models directly to the API responses. Always use Pydantic request/response shapes in `app/schemas/`.
+</critical_rules>
+
+<lessons_learned>
+# 🛑 Known Mistakes to Avoid (Update this when Claude repeats an error)
+- **Do not overwrite `elo_v1.py`:** When working on new rating features, create a new engine version (e.g., `elo_v2.py`). Leave `elo_v1.py` completely untouched.
+- **Alembic Migrations:** Never generate a new migration without explicitly asking the user for confirmation first.
+</lessons_learned>
+
 ## Commands
 
 ```bash
@@ -24,7 +45,7 @@ open http://localhost:8000/docs
 ## Architecture
 
 ### Stack
-FastAPI (async) + SQLAlchemy 2.0 (async) + PostgreSQL 16/PostGIS + Celery + Redis. All I/O is async — use `async def` and `await` throughout.
+FastAPI (async) + SQLAlchemy 2.0 (async) + PostgreSQL 16/PostGIS + Celery + Redis.
 
 ### Key Design Patterns
 
@@ -32,7 +53,6 @@ FastAPI (async) + SQLAlchemy 2.0 (async) + PostgreSQL 16/PostGIS + Celery + Redi
 - `RatingEngine` ABC in `base.py` defines the interface: receives a `RatingContext`, returns a `RatingDelta`
 - `EloRatingEngine` in `elo_v1.py` is the active implementation
 - Registry in `__init__.py` — add new engines to `ENGINES` dict; switch via `RATING_ENGINE` env var
-- All rating events write to the append-only `RatingEvent` table (never update) to allow algorithm replay
 
 **Pluggable Filming Adapters** (`app/adapters/filming/`)
 - `FilmingProvider` ABC in `base.py`: `start_session()`, `stop_session()`, `generate_highlights()`, `extract_video_metrics()`
@@ -45,7 +65,7 @@ FastAPI (async) + SQLAlchemy 2.0 (async) + PostgreSQL 16/PostGIS + Celery + Redi
 - `PlayerGameStats.stats` is JSONB, validated at application layer against the sport's schema before insert
 
 **Data Flow**
-```
+```text
 Match ends → FilmingProvider.stop_session()
   → Celery: video.py worker generates highlights
   → Celery: ratings.py worker calls RatingEngine.compute()
@@ -65,7 +85,6 @@ Match ends → FilmingProvider.stop_session()
 
 ### Database
 - PostGIS `POINT(SRID:4326)` for court/facility locations — use GeoAlchemy2 spatial types
-- `RatingEvent` is append-only — never UPDATE or DELETE rows in this table
 - Async sessions via `app/core/database.py`; inject with `Depends(get_db)` from `app/api/dependencies.py`
 
 ### Environment Variables
