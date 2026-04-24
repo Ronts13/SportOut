@@ -40,7 +40,12 @@ This file covers architecture, current state, invariants, and what to build next
 
 The vision of SportOut is to change amateur sports in the world. We give every amateur athlete a **digital sports identity**: a credible rating, match history, highlight reel, and path to improvement — regardless of whether they play at a pro facility or a neighborhood court. The platform connects players to games at the right skill level, gives facility managers a live view of court activity, and gives scouts/coaches a structured talent pipeline.
 
-**5 Pillars:** Performance Stats & Dynamic Ratings · Matchmaking · Smart Media · Growth & Coaching · Municipal Information
+**5 Pillars** *(validated as "Dream Features" in our latest user survey)*:
+- Performance Stats & Dynamic Ratings *(Statistics & Performance)*
+- Matchmaking *(Finding Partners & Players)*
+- Smart Media *(Game Filming & Highlights)*
+- Growth & Coaching *(Improvement Tools)*
+- Municipal Information *(Information & Availability)*
 
 ---
 
