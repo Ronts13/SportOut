@@ -19,6 +19,12 @@ engine = create_async_engine(
     pool_size=settings.DATABASE_POOL_SIZE,
     max_overflow=settings.DATABASE_MAX_OVERFLOW,
     echo=settings.DEBUG,
+    pool_pre_ping=True,
+    connect_args={
+        "timeout": 10,
+        "statement_cache_size": 0,
+        "server_settings": {"application_name": "sportout"},
+    },
 )
 
 AsyncSessionFactory = async_sessionmaker(engine, expire_on_commit=False)
