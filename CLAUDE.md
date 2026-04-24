@@ -9,7 +9,7 @@ This file covers architecture, current state, invariants, and what to build next
 
 <project_context>
 **Project:** SportOut
-**Mission:** A hardcore street sports platform for competitive players.
+**Mission:** To change amateur sports in the world by providing a hardcore street sports platform for competitive players.
 **Current Phase:** Football MVP.
 **Core Feature:** "AI Combine" — A player evaluation system mapped to 4 pillars (Pace, Shooting, Dribbling, Technique).
 **Methodology:** We currently use a "Wizard of Oz" approach. Users upload videos of specific drills, and admins manually score them via the backend. This manual scoring serves as ground-truth data for future Computer Vision (CV) training.
@@ -38,7 +38,7 @@ This file covers architecture, current state, invariants, and what to build next
 
 ## 1. Project in One Paragraph
 
-SportOut gives every amateur athlete a **digital sports identity**: a credible rating, match history, highlight reel, and path to improvement — regardless of whether they play at a pro facility or a neighborhood court. The platform connects players to games at the right skill level, gives facility managers a live view of court activity, and gives scouts/coaches a structured talent pipeline.
+The vision of SportOut is to change amateur sports in the world. We give every amateur athlete a **digital sports identity**: a credible rating, match history, highlight reel, and path to improvement — regardless of whether they play at a pro facility or a neighborhood court. The platform connects players to games at the right skill level, gives facility managers a live view of court activity, and gives scouts/coaches a structured talent pipeline.
 
 **5 Pillars:** Performance Stats & Dynamic Ratings · Matchmaking · Smart Media · Growth & Coaching · Municipal Information
 
