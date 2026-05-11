@@ -11,10 +11,12 @@ from sqlalchemy.orm import selectinload
 
 from app.api.dependencies import TokenData, get_current_user
 from app.core.database import get_db
+from app.core.enums import Sport
 from app.models.facility import Facility
-from app.models.match import Match, MatchResultConfirmation, MatchRoster
+from app.models.match import Match, MatchResultConfirmation, MatchRoster, PlayerGameStats
 from app.models.sport_profile import SportProfile
 from app.schemas.match import MatchCreate, MatchOut, MatchResultSubmit, PlayerGameStatsCreate
+from app.sports.registry import validate_game_stats
 
 router = APIRouter(prefix="/matches", tags=["matches"])
 
@@ -299,4 +301,37 @@ async def submit_game_stats(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ) -> dict:
-    raise NotImplementedError
+    match = await db.get(Match, match_id)
+    if match is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match not found")
+    if match.status not in ("in_progress", "completed"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Stats can only be submitted for in-progress or completed matches")
+
+    roster_row = await db.execute(
+        select(MatchRoster)
+        .where(MatchRoster.match_id == match_id, MatchRoster.player_id == current_user.id)
+        .options(selectinload(MatchRoster.game_stats))
+    )
+    roster = roster_row.scalar_one_or_none()
+    if roster is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not rostered in this match")
+    if roster.game_stats is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Stats already submitted for this match")
+
+    try:
+        sport_enum = Sport(payload.sport)
+        validate_game_stats(sport_enum, payload.stats)
+    except (ValueError, Exception) as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+
+    pgs = PlayerGameStats(
+        match_roster_id=roster.id,
+        sport=payload.sport,
+        stats=payload.stats,
+        recorded_at=datetime.now(timezone.utc),
+    )
+    db.add(pgs)
+    await db.commit()
+    await db.refresh(pgs)
+
+    return {"id": str(pgs.id), "match_roster_id": str(roster.id), "sport": pgs.sport, "stats": pgs.stats}

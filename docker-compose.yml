@@ -13,15 +13,34 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
   app:
     build: .
     restart: unless-stopped
     depends_on:
       - db
+      - redis
     env_file:
       - .env
     ports:
       - "8000:8000"
+    volumes:
+      - .:/app
+
+  worker:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - .env
+    command: celery -A app.workers worker --loglevel=info
     volumes:
       - .:/app
 
