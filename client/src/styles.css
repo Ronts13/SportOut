@@ -1,0 +1,190 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@import "leaflet/dist/leaflet.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* SportOut palette */
+  --color-navy-950: var(--navy-950);
+  --color-navy-900: var(--navy-900);
+  --color-navy-800: var(--navy-800);
+  --color-navy-700: var(--navy-700);
+  --color-navy-600: var(--navy-600);
+  --color-teal-glow: var(--teal-glow);
+  --color-teal-base: var(--teal-base);
+  --color-teal-muted: var(--teal-muted);
+  --color-teal-dim: var(--teal-dim);
+
+  --shadow-teal-glow: 0 0 18px 3px color-mix(in oklab, var(--teal-glow) 35%, transparent);
+  --shadow-teal-glow-sm: 0 0 8px 1px color-mix(in oklab, var(--teal-glow) 25%, transparent);
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.55);
+
+  --font-sans: "Inter", system-ui, sans-serif;
+}
+
+:root {
+  --radius: 0.875rem;
+
+  /* SportOut tokens (dark by default) */
+  --navy-950: #060a14;
+  --navy-900: #0a0f1e;
+  --navy-800: #0d1526;
+  --navy-700: #111d33;
+  --navy-600: #182540;
+  --teal-glow: #00ffe7;
+  --teal-base: #00d4c8;
+  --teal-muted: #00a89e;
+  --teal-dim: #007a73;
+
+  --background: var(--navy-950);
+  --foreground: oklch(0.98 0.01 200);
+  --card: var(--navy-800);
+  --card-foreground: oklch(0.98 0.01 200);
+  --popover: var(--navy-800);
+  --popover-foreground: oklch(0.98 0.01 200);
+  --primary: var(--teal-glow);
+  --primary-foreground: var(--navy-950);
+  --secondary: var(--navy-700);
+  --secondary-foreground: oklch(0.98 0.01 200);
+  --muted: var(--navy-700);
+  --muted-foreground: oklch(0.7 0.02 220);
+  --accent: var(--navy-700);
+  --accent-foreground: oklch(0.98 0.01 200);
+  --destructive: oklch(0.65 0.22 25);
+  --destructive-foreground: oklch(0.98 0.01 200);
+  --border: oklch(1 0 0 / 8%);
+  --input: oklch(1 0 0 / 12%);
+  --ring: var(--teal-glow);
+}
+
+@layer base {
+  * { border-color: var(--color-border); }
+  html, body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* Inter via Google */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap");
+
+/* Utilities */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.safe-pt { padding-top: max(1.5rem, env(safe-area-inset-top)); }
+.safe-pb-nav { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+.safe-pb-main { padding-bottom: calc(5.5rem + env(safe-area-inset-bottom)); }
+
+/* Animations */
+@keyframes pulse-teal {
+  0%, 100% { box-shadow: 0 0 6px 1px rgba(0,255,231,0.6); }
+  50%      { box-shadow: 0 0 14px 4px rgba(0,255,231,0.9); }
+}
+.live-dot { animation: pulse-teal 1.8s ease-in-out infinite; }
+
+@keyframes court-ping {
+  0%   { transform: scale(1);   opacity: 0.8; }
+  70%  { transform: scale(2.2); opacity: 0;   }
+  100% { transform: scale(1);   opacity: 0;   }
+}
+
+@keyframes section-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.section-enter { animation: section-in 0.2s ease-out forwards; }
+
+/* Leaflet tooltip */
+.leaflet-tooltip-sportout {
+  background: rgba(6,10,20,0.9);
+  border: 1px solid rgba(0,255,231,0.35);
+  color: #00ffe7;
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 4px 8px;
+  box-shadow: 0 0 8px 1px rgba(0,255,231,0.25);
+  white-space: nowrap;
+}
+.leaflet-tooltip-sportout::before { border: none !important; }
+
+.leaflet-container {
+  background: var(--navy-900) !important;
+  font-family: var(--font-sans);
+}
+
+/* Court marker */
+.court-marker {
+  position: relative;
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  background: var(--teal-glow);
+  box-shadow: 0 0 8px 2px rgba(0,255,231,0.6);
+}
+.court-marker.offline {
+  background: var(--teal-dim);
+  box-shadow: none;
+}
+.court-marker.live::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: var(--teal-glow);
+  animation: court-ping 1.8s cubic-bezier(0,0,0.2,1) infinite;
+}
+
+/* Sport chip */
+.sport-chip {
+  flex-shrink: 0;
+  padding: 6px 16px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: var(--navy-800);
+  color: rgba(255,255,255,0.4);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.sport-chip.active {
+  background: rgba(0,255,231,0.15);
+  border-color: rgba(0,255,231,0.4);
+  color: var(--teal-glow);
+  font-weight: 600;
+}

@@ -115,6 +115,15 @@ _MOCK_FACILITIES: list[FacilityOut] = [
 ]
 
 
+@router.get("/", response_model=list[FacilityOut])
+async def list_facilities(
+    sport: str | None = Query(None),
+) -> list[FacilityOut]:
+    if sport is None:
+        return _MOCK_FACILITIES
+    return [f for f in _MOCK_FACILITIES if sport in f.sports_supported]
+
+
 @router.post("/", response_model=FacilityOut, status_code=status.HTTP_201_CREATED)
 async def create_facility(payload: FacilityCreate, db: AsyncSession = Depends(get_db)) -> FacilityOut:
     raise NotImplementedError
