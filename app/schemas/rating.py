@@ -54,3 +54,27 @@ class PeerReviewOut(BaseModel):
     is_confirmed: bool
     submitted_at: datetime
     confirmed_at: datetime | None
+
+
+class CombineScoreCreate(BaseModel):
+    """Admin payload for manually scoring a player's AI Combine evaluation."""
+    sport: str
+    # Four pillars — each scored 0–100 by the admin reviewer
+    pace: int = Field(..., ge=0, le=100)
+    shooting: int = Field(..., ge=0, le=100)
+    dribbling: int = Field(..., ge=0, le=100)
+    technique: int = Field(..., ge=0, le=100)
+    notes: str | None = Field(None, max_length=500)
+
+
+class CombineScoreOut(BaseModel):
+    player_id: uuid.UUID
+    sport: str
+    pace: int
+    shooting: int
+    dribbling: int
+    technique: int
+    overall: float
+    rating_delta: float
+    new_rating: float
+    notes: str | None

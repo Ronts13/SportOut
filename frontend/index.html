@@ -392,8 +392,8 @@
         </svg>
       </div>
       <div class="min-w-0">
-        <p class="text-white text-sm font-semibold truncate">Ron</p>
-        <p class="text-teal-glow text-xs font-medium">Rating 94</p>
+        <p id="nav-sidebar-name" class="text-white text-sm font-semibold truncate">...</p>
+        <p id="nav-sidebar-rating" class="text-teal-glow text-xs font-medium">Unranked</p>
       </div>
     </div>
 
@@ -439,6 +439,69 @@
         </button>
       </div>
     </header>
+
+
+    <!-- ═══════════════════════════════════════════════
+         LANDING — shown to logged-out users
+    ═══════════════════════════════════════════════ -->
+    <div data-section="landing" class="hidden">
+    <div class="flex flex-col items-center justify-center min-h-[70dvh] px-8 text-center safe-pb-main lg:pb-16">
+
+      <div class="mb-8 mt-6">
+        <div class="w-20 h-20 rounded-3xl bg-teal-base/20 border border-teal-glow/40
+                    flex items-center justify-center shadow-teal-glow mx-auto mb-5">
+          <span class="text-teal-glow font-extrabold text-3xl leading-none tracking-tight">S</span>
+        </div>
+        <h1 class="text-white font-extrabold text-3xl tracking-tight mb-3">SportOut</h1>
+        <p class="text-white/50 text-sm leading-relaxed max-w-xs mx-auto">
+          The competitive platform for street sports.<br>Track your rating, find matches, rise through the ranks.
+        </p>
+      </div>
+
+      <div class="flex gap-8 mb-10">
+        <div class="text-center">
+          <p class="text-teal-glow font-extrabold text-2xl">1k+</p>
+          <p class="text-white/35 text-xs mt-0.5">Players</p>
+        </div>
+        <div class="w-px bg-white/8 self-stretch"></div>
+        <div class="text-center">
+          <p class="text-teal-glow font-extrabold text-2xl">5+</p>
+          <p class="text-white/35 text-xs mt-0.5">Sports</p>
+        </div>
+        <div class="w-px bg-white/8 self-stretch"></div>
+        <div class="text-center">
+          <p class="text-teal-glow font-extrabold text-2xl">Live</p>
+          <p class="text-white/35 text-xs mt-0.5">Rankings</p>
+        </div>
+      </div>
+
+      <p class="text-white/50 text-sm mb-2">
+        Join <span id="landing-count-num" class="text-teal-glow font-semibold">…</span> players on SportOut
+      </p>
+
+      <div class="flex flex-col gap-3 w-full max-w-xs">
+        <button onclick="switchAuthTab('signup'); showLoginModal()"
+                class="w-full py-3.5 rounded-2xl bg-teal-glow text-black font-extrabold text-base
+                       shadow-teal-glow hover:opacity-90 active:scale-[0.98] transition-all">
+          Get Started — Sign Up
+        </button>
+        <button onclick="switchAuthTab('signin'); showLoginModal()"
+                class="w-full py-3.5 rounded-2xl bg-white/5 border border-white/15
+                       text-white font-semibold text-base hover:bg-white/10 active:scale-[0.98] transition-all">
+          Sign In
+        </button>
+      </div>
+
+      <p class="text-white/20 text-xs mt-8">
+        <button onclick="navigateTo('courts')"
+                class="text-teal-glow/50 hover:text-teal-glow underline underline-offset-2 transition-colors">
+          Browse courts
+        </button>
+        &nbsp;without signing in
+      </p>
+
+    </div>
+    </div><!-- /landing -->
 
 
     <!-- ═══════════════════════════════════════════════
@@ -635,7 +698,7 @@
             <p class="text-white/50 text-xs mt-1 font-medium">Active Courts</p>
           </div>
           <div class="flex-shrink-0 w-36 lg:w-auto rounded-2xl bg-card-glass border border-white/5 bg-navy-800 p-4 shadow-card">
-            <p class="text-teal-glow text-2xl font-extrabold tracking-tight">94<span class="text-base">%</span></p>
+            <p id="stat-match-rate" class="text-teal-glow text-2xl font-extrabold tracking-tight">—</p>
             <p class="text-white/50 text-xs mt-1 font-medium">Match Rate</p>
           </div>
         </div>
@@ -724,6 +787,15 @@
       <!-- Dynamic LFG cards — filled by renderMatchesTab() -->
       <div id="matches-feed" class="flex flex-col lg:grid lg:grid-cols-2 gap-3 pb-6"></div>
 
+      <!-- Auth gate — backup in case JS routing is bypassed -->
+      <div class="auth-gate hidden flex flex-col items-center justify-center py-16 text-center gap-4">
+        <p class="text-white/40 text-sm">Sign in to see live matches and find players</p>
+        <button onclick="switchAuthTab('signin'); showLoginModal()"
+                class="px-6 py-2.5 rounded-xl bg-teal-glow text-black font-bold text-sm shadow-teal-glow-sm">
+          Sign In
+        </button>
+      </div>
+
     </div><!-- /matches -->
 
 
@@ -770,6 +842,15 @@
         <!-- Populated dynamically by filterBySport() — sequential rank numbers -->
       </div>
 
+      <!-- Auth gate — backup in case JS routing is bypassed -->
+      <div class="auth-gate hidden flex flex-col items-center justify-center py-16 text-center gap-4">
+        <p class="text-white/40 text-sm">Sign in to view the full leaderboard</p>
+        <button onclick="switchAuthTab('signin'); showLoginModal()"
+                class="px-6 py-2.5 rounded-xl bg-teal-glow text-black font-bold text-sm shadow-teal-glow-sm">
+          Sign In
+        </button>
+      </div>
+
     </div><!-- /rankings -->
 
 
@@ -788,32 +869,45 @@
                      0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
           </svg>
         </div>
-        <p class="text-white font-bold text-lg tracking-tight">Ron</p>
-        <p class="text-white/40 text-sm mt-0.5">Padel &amp; Football Player · Tel Aviv</p>
+        <p id="my-profile-name" class="text-white font-bold text-lg tracking-tight">…</p>
+        <p id="my-profile-subtitle" class="text-white/40 text-sm mt-0.5">…</p>
+        <p id="my-profile-bio" class="text-white/40 text-xs mt-2 text-center max-w-xs leading-relaxed"></p>
 
         <!-- Instagram-style stats row -->
         <div class="flex items-center justify-around w-full mt-4 px-4">
           <div class="text-center">
-            <p id="my-profile-rating" class="text-teal-glow font-extrabold text-xl leading-tight">94</p>
+            <p id="my-profile-rating" class="text-teal-glow font-extrabold text-xl leading-tight">—</p>
             <p class="text-white/40 text-[11px] mt-0.5">Rating</p>
           </div>
           <div class="w-px h-8 bg-white/10"></div>
           <div class="text-center">
-            <p id="my-followers" class="text-white font-bold text-xl leading-tight">450</p>
+            <p id="my-followers" onclick="alert('Followers list feature coming soon!')" class="text-white font-bold text-xl leading-tight cursor-pointer">0</p>
             <p class="text-white/40 text-[11px] mt-0.5">Followers</p>
           </div>
           <div class="w-px h-8 bg-white/10"></div>
           <div class="text-center">
-            <p id="my-following" class="text-white font-bold text-xl leading-tight">64</p>
+            <p id="my-following" onclick="alert('Followers list feature coming soon!')" class="text-white font-bold text-xl leading-tight cursor-pointer">0</p>
             <p class="text-white/40 text-[11px] mt-0.5">Following</p>
           </div>
         </div>
 
-        <button onclick="showToast('Profile editing coming soon')"
-                class="mt-4 px-6 py-2 rounded-xl bg-teal-glow/15 border border-teal-glow/40
-                       text-teal-glow text-sm font-semibold hover:bg-teal-glow/20 transition-colors">
-          Edit Profile
-        </button>
+        <div class="mt-4 flex gap-2">
+          <button onclick="openEditProfileModal()"
+                  class="px-6 py-2 rounded-xl bg-teal-glow/15 border border-teal-glow/40
+                         text-teal-glow text-sm font-semibold hover:bg-teal-glow/20 transition-colors">
+            Edit Profile
+          </button>
+          <button id="auth-signin-btn" onclick="showLoginModal()"
+                  class="px-4 py-2 rounded-xl bg-white/5 border border-white/15
+                         text-white/60 text-sm font-semibold hover:bg-white/10 transition-colors">
+            Sign In
+          </button>
+          <button id="auth-signout-btn" onclick="handleLogout()" style="display:none"
+                  class="px-4 py-2 rounded-xl bg-white/5 border border-white/15
+                         text-white/60 text-sm font-semibold hover:bg-white/10 transition-colors">
+            Sign Out
+          </button>
+        </div>
       </div>
 
       <!-- Sport toggle tabs for Ron's multi-sport profile -->
@@ -1060,6 +1154,12 @@
                        text-white/70 text-sm font-semibold hover:border-white/20
                        transition-colors active:scale-95">Message</button>
       </div>
+      <button id="pd-invite-btn" onclick="handleInviteToMatch()"
+              class="hidden w-full mt-2 py-2 rounded-xl bg-navy-700 border border-white/10
+                     text-white/70 text-sm font-semibold hover:border-teal-glow/30
+                     hover:text-teal-glow/80 transition-colors active:scale-95">
+        Invite to Match
+      </button>
     </div>
 
     <!-- Performance Attributes — FIFA/2K style, filled dynamically -->
@@ -2245,11 +2345,13 @@
 
     /* ── Navigation ── */
     const TAB_LABELS = {
-      feed: 'Feed', courts: 'Courts', matches: 'Matches',
+      landing: '', feed: 'Feed', courts: 'Courts', matches: 'Matches',
       rankings: 'Rankings', profile: 'Profile'
     };
 
     function navigateTo(tab) {
+      const AUTH_REQUIRED = ['feed', 'matches', 'rankings', 'profile'];
+      if (!_jwt && AUTH_REQUIRED.includes(tab)) { tab = 'landing'; }
       document.querySelectorAll('[data-section]').forEach(sec => {
         if (sec.dataset.section === tab) {
           sec.classList.remove('hidden', 'section-enter');
@@ -2723,6 +2825,8 @@
 
     function hidePlayerDetail() {
       document.getElementById('player-detail-overlay').classList.remove('pd-open');
+      _currentDetailPlayerUuid = null;
+      _currentDetailPlayer = null;
     }
 
     /* ── Matches tab — LFG feed ── */
@@ -2732,6 +2836,20 @@
     };
 
     function renderMatchesTab() {
+      const feed = document.getElementById('matches-feed');
+      if (!feed) return;
+      feed.innerHTML = `
+        <div class="col-span-2 py-12 flex flex-col items-center gap-3 text-center">
+          <p class="text-white/30 text-sm font-medium">No active matches found.</p>
+          <button onclick="showCreateMatch()"
+                  class="text-xs text-teal-glow font-semibold border border-teal-glow/25 px-4 py-2 rounded-full
+                         hover:bg-teal-glow/10 transition-colors">
+            Create one!
+          </button>
+        </div>`;
+    }
+
+    function _renderMatchesTabMock() {
       const feed = document.getElementById('matches-feed');
       if (!feed) return;
 
@@ -2947,29 +3065,83 @@
         `<div class="rounded-2xl bg-navy-800 border border-white/5 shadow-card overflow-hidden">${renderStatsPanel(me, prof)}</div>`;
     }
 
-    function toggleFollow(btn) {
-      const p = _currentDetailPlayer;
-      if (!p || p.id === 2) return; // no-op for the logged-in user
-
-      p.isFollowedByMe = !p.isFollowedByMe;
-
-      if (p.isFollowedByMe) {
-        p.followersCount++;
+    function _updateFollowBtnState(btn, isFollowing) {
+      if (isFollowing) {
         btn.textContent       = 'Following';
         btn.style.background  = 'rgba(57,255,20,0.25)';
         btn.style.borderColor = 'rgba(57,255,20,0.6)';
         btn.style.color       = '#39FF14';
       } else {
-        p.followersCount = Math.max(0, p.followersCount - 1);
         btn.textContent       = 'Follow';
         btn.style.background  = '';
         btn.style.borderColor = '';
         btn.style.color       = '';
       }
+    }
 
-      // Live-update the counter visible on screen
+    async function handleInviteToMatch() {
+      if (!_jwt) { showLoginModal(); return; }
+      try {
+        const matches = await _apiGet('/api/v1/matches/?status=open&limit=10');
+        if (!matches || matches.length === 0) {
+          showToast('No active matches — create one first!'); return;
+        }
+        showToast(`Match invite coming soon — you have ${matches.length} open match(es)`);
+      } catch (_) {
+        showToast('No active matches — create one first!');
+      }
+    }
+
+    function toggleFollow(btn) {
+      // API-player mode: delegate to async handler
+      if (_currentDetailPlayerUuid) {
+        if (!_jwt) { showLoginModal(); return; }
+        if (btn.textContent === 'Edit Profile') { hidePlayerDetail(); navigateTo('profile'); openEditProfileModal(); return; }
+        _doApiFollow(btn);
+        return;
+      }
+      // Legacy mock-player mode
+      const p = _currentDetailPlayer;
+      if (!p || p.id === 2) return;
+      p.isFollowedByMe = !p.isFollowedByMe;
+      if (p.isFollowedByMe) {
+        p.followersCount++;
+        _updateFollowBtnState(btn, true);
+      } else {
+        p.followersCount = Math.max(0, p.followersCount - 1);
+        _updateFollowBtnState(btn, false);
+      }
       const followersEl = document.getElementById('pd-followers');
       if (followersEl) followersEl.textContent = fmtSocial(p.followersCount);
+    }
+
+    async function _doApiFollow(btn) {
+      const playerUuid = _currentDetailPlayerUuid;
+      const wasFollowing = _currentDetailPlayerIsFollowing;
+      _currentDetailPlayerIsFollowing = !wasFollowing;
+      _updateFollowBtnState(btn, _currentDetailPlayerIsFollowing);
+      const followersEl = document.getElementById('pd-followers');
+      const prevCount = parseInt(followersEl.textContent) || 0;
+      followersEl.textContent = _currentDetailPlayerIsFollowing ? prevCount + 1 : Math.max(0, prevCount - 1);
+      try {
+        const method = _currentDetailPlayerIsFollowing ? 'POST' : 'DELETE';
+        const res = await fetch(API_BASE + `/api/v1/players/${playerUuid}/follow`, {
+          method, headers: _authHeaders(),
+        });
+        if (!res.ok) throw new Error(res.status);
+        try {
+          const me = await _apiGet('/api/v1/players/me');
+          _myProfile = me;
+          const myFollowingEl = document.getElementById('my-following');
+          if (myFollowingEl) myFollowingEl.textContent = me.following_count;
+        } catch (_) {}
+        showToast(_currentDetailPlayerIsFollowing ? 'Following!' : 'Unfollowed');
+      } catch (err) {
+        _currentDetailPlayerIsFollowing = wasFollowing;
+        _updateFollowBtnState(btn, _currentDetailPlayerIsFollowing);
+        followersEl.textContent = prevCount;
+        showToast('Could not update — try again');
+      }
     }
 
 
@@ -3148,6 +3320,622 @@
     }
 
 
+    /* ═══════════════════════════════════════════════════════════════════
+       API LAYER — Auth · Leaderboard · Matches
+       ═══════════════════════════════════════════════════════════════════ */
+
+    const API_BASE = (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost')
+      ? 'http://127.0.0.1:8000'
+      : '';
+
+    // ── Auth state ──────────────────────────────────────────────────────
+    let _jwt = localStorage.getItem('sportout_jwt') || null;
+    let _myProfile = null;
+    let _currentDetailPlayerUuid = null;
+    let _currentDetailPlayerIsFollowing = false;
+
+    function _authHeaders() {
+      return _jwt ? { 'Authorization': `Bearer ${_jwt}` } : {};
+    }
+    async function _apiGet(path) {
+      const res = await fetch(API_BASE + path, { headers: _authHeaders() });
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      return res.json().catch(() => { throw new Error('Invalid server response'); });
+    }
+    async function _apiPost(path, body, isForm) {
+      const opts = { method: 'POST', headers: { ..._authHeaders() } };
+      if (isForm) {
+        const fd = new URLSearchParams();
+        Object.entries(body).forEach(([k, v]) => fd.append(k, v));
+        opts.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+        opts.body = fd.toString();
+      } else {
+        opts.headers['Content-Type'] = 'application/json';
+        opts.body = JSON.stringify(body);
+      }
+      const url = API_BASE + path;
+      console.log('INTEGRATION CHECK: Sending request to:', url);
+      console.table(body);
+      const res = await fetch(url, opts);
+      if (!res.ok) {
+        let msg;
+        try {
+          const data = await res.json();
+          if (Array.isArray(data.detail)) {
+            // FastAPI 422 — array of validation error objects
+            msg = data.detail.map(d => d.msg || JSON.stringify(d)).join(' | ');
+          } else {
+            msg = data.detail || data.message || `Server error ${res.status}`;
+          }
+        } catch { msg = `Server error ${res.status}`; }
+        throw new Error(`[${res.status}] ${msg}`);
+      }
+      return res.json();
+    }
+    async function _apiPatch(path, body) {
+      const opts = {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ..._authHeaders() },
+        body: JSON.stringify(body),
+      };
+      const res = await fetch(API_BASE + path, opts);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || `${res.status}`);
+      }
+      return res.json();
+    }
+    function _decodeJwtPayload(token) {
+      try {
+        return JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+      } catch { return null; }
+    }
+    function validateSessionOnLoad() {
+      if (!_jwt) return;
+      const payload = _decodeJwtPayload(_jwt);
+      if (!payload || (payload.exp && payload.exp < Date.now() / 1000)) {
+        _jwt = null;
+        localStorage.removeItem('sportout_jwt');
+      }
+    }
+
+    // ── Login / logout ──────────────────────────────────────────────────
+    function showLoginModal() {
+      document.getElementById('login-modal').classList.remove('hidden');
+      document.getElementById('login-error').textContent = '';
+    }
+    function hideLoginModal() {
+      document.getElementById('login-modal').classList.add('hidden');
+    }
+    async function handleLoginSubmit(e) {
+      e.preventDefault();
+      const email     = document.getElementById('login-email').value.trim();
+      const pass      = document.getElementById('login-pass').value;
+      const errEl     = document.getElementById('login-error');
+      const submitBtn = e.target.querySelector('[type="submit"]');
+      errEl.textContent     = '';
+      submitBtn.disabled    = true;
+      submitBtn.textContent = 'Signing in…';
+      try {
+        const data = await _apiPost('/auth/token', { username: email, password: pass }, true);
+        _jwt = data.access_token;
+        localStorage.setItem('sportout_jwt', _jwt);
+        hideLoginModal();
+        refreshAuthUI();
+        navigateTo('feed');
+        fetchAndRenderMatches();
+        fetchAndPopulateProfileFromApi();
+        showToast('Signed in!');
+      } catch (err) {
+        console.error('[SportOut] Login failed:', err);
+        const msg = err instanceof TypeError
+          ? 'Cannot reach server — is backend running on port 8000?'
+          : (err.message || 'Sign in failed');
+        errEl.textContent     = msg;
+        submitBtn.disabled    = false;
+        submitBtn.textContent = 'Sign In';
+      }
+    }
+    function handleLogout() {
+      _jwt = null;
+      localStorage.removeItem('sportout_jwt');
+      refreshAuthUI();
+      navigateTo('landing');
+      showToast('Signed out');
+    }
+    function refreshAuthUI() {
+      const signinBtn  = document.getElementById('auth-signin-btn');
+      const signoutBtn = document.getElementById('auth-signout-btn');
+      if (signinBtn)  signinBtn.style.display  = _jwt ? 'none'  : '';
+      if (signoutBtn) signoutBtn.style.display = _jwt ? ''      : 'none';
+      document.querySelectorAll('.auth-gate').forEach(el => {
+        el.classList.toggle('hidden', !!_jwt);
+      });
+    }
+    function switchAuthTab(tab) {
+      const isSignIn = tab === 'signin';
+      document.getElementById('form-signin').classList.toggle('hidden', !isSignIn);
+      document.getElementById('form-signup').classList.toggle('hidden', isSignIn);
+      const active   = 'flex-1 py-2 rounded-lg text-sm font-semibold transition-colors text-teal-glow bg-navy-700';
+      const inactive = 'flex-1 py-2 rounded-lg text-sm font-semibold transition-colors text-white/40';
+      document.getElementById('tab-signin').className = isSignIn ? active : inactive;
+      document.getElementById('tab-signup').className = isSignIn ? inactive : active;
+      const hint = document.getElementById('seed-hint');
+      if (hint) hint.classList.toggle('hidden', !isSignIn);
+    }
+    function handleSocialLogin(provider) {
+      showToast(`${provider.charAt(0).toUpperCase() + provider.slice(1)} login — Under Development`);
+    }
+    async function handleRegisterSubmit(e) {
+      e.preventDefault();
+      const displayName = document.getElementById('reg-displayname').value.trim();
+      const username    = document.getElementById('reg-username').value.trim();
+      const email       = document.getElementById('reg-email').value.trim();
+      const pass        = document.getElementById('reg-pass').value;
+      const errEl       = document.getElementById('reg-error');
+      const submitBtn   = e.target.querySelector('[type="submit"]');
+      errEl.textContent     = '';
+      submitBtn.disabled    = true;
+      submitBtn.textContent = 'Creating account…';
+      try {
+        console.log('Attempting register to:', API_BASE + '/api/v1/players/');
+        await _apiPost('/api/v1/players/', { email, username, display_name: displayName, password: pass });
+        const data = await _apiPost('/auth/token', { username: email, password: pass }, true);
+        _jwt = data.access_token;
+        localStorage.setItem('sportout_jwt', _jwt);
+        hideLoginModal();
+        refreshAuthUI();
+        navigateTo('feed');
+        fetchAndRenderMatches();
+        fetchAndPopulateProfileFromApi();
+        // Fetch new player count and show personalised welcome
+        try {
+          const countData = await _apiGet('/api/v1/players/count');
+          const num = countData.total_players;
+          updateLandingCount(num);
+          showToast(`Welcome! You are player number ${num} to join SportOut`);
+        } catch (_) {
+          showToast('Welcome to SportOut!');
+        }
+      } catch (err) {
+        console.error('[SportOut] Register failed:', err);
+        const msg = err instanceof TypeError
+          ? 'Cannot reach server — is backend running on port 8000?'
+          : (err.message || 'Registration failed — try again');
+        errEl.textContent     = msg;
+        submitBtn.disabled    = false;
+        submitBtn.textContent = 'Create Account';
+      }
+    }
+    function openEditProfileModal() {
+      if (!_jwt) { showLoginModal(); return; }
+      document.getElementById('ep-displayname').value = _myProfile?.display_name || '';
+      document.getElementById('ep-city').value        = _myProfile?.city || '';
+      document.getElementById('ep-bio').value         = _myProfile?.bio || '';
+      document.getElementById('ep-avatar').value      = _myProfile?.avatar_url || '';
+      document.getElementById('ep-error').textContent = '';
+      document.getElementById('edit-profile-modal').classList.remove('hidden');
+    }
+    function closeEditProfileModal() {
+      document.getElementById('edit-profile-modal').classList.add('hidden');
+    }
+    async function handleEditProfileSave(e) {
+      e.preventDefault();
+      const jwtPayload = _decodeJwtPayload(_jwt);
+      if (!jwtPayload) return;
+      const playerId  = jwtPayload.sub;
+      const errEl     = document.getElementById('ep-error');
+      const submitBtn = e.target.querySelector('[type="submit"]');
+      const body = {};
+      const displayName = document.getElementById('ep-displayname').value.trim();
+      const city        = document.getElementById('ep-city').value.trim();
+      const bio         = document.getElementById('ep-bio').value.trim();
+      const avatarUrl   = document.getElementById('ep-avatar').value.trim();
+      if (displayName) body.display_name = displayName;
+      if (city)        body.city         = city;
+      if (bio)         body.bio          = bio;
+      if (avatarUrl)   body.avatar_url   = avatarUrl;
+      if (!Object.keys(body).length) { errEl.textContent = 'No changes to save'; return; }
+      errEl.textContent     = '';
+      submitBtn.disabled    = true;
+      submitBtn.textContent = 'Saving…';
+      try {
+        const updated = await _apiPatch('/api/v1/players/me', body);
+        _myProfile = updated;
+        const nameEl     = document.getElementById('my-profile-name');
+        const subtitleEl = document.getElementById('my-profile-subtitle');
+        const bioEl      = document.getElementById('my-profile-bio');
+        const sidebarEl  = document.getElementById('nav-sidebar-name');
+        if (nameEl)    nameEl.textContent    = updated.display_name;
+        if (sidebarEl) sidebarEl.textContent = updated.display_name;
+        if (bioEl)     bioEl.textContent     = updated.bio || '';
+        if (subtitleEl) {
+          const cityPart = updated.city ? ` · ${updated.city}` : '';
+          subtitleEl.textContent = `@${updated.username}${cityPart}`;
+        }
+        closeEditProfileModal();
+        showToast('Profile updated!');
+      } catch (err) {
+        console.error('[SportOut] Profile update failed:', err);
+        const msg = err instanceof TypeError ? 'Cannot reach server' : (err.message || 'Update failed');
+        errEl.textContent     = msg;
+        submitBtn.disabled    = false;
+        submitBtn.textContent = 'Save Changes';
+      }
+    }
+
+    // ── Leaderboard API ─────────────────────────────────────────────────
+    const _API_SPORT_MAP = { padel: 'padel', tennis: 'tennis', football: 'soccer', basketball: 'basketball' };
+    const _apiPlayerCache = new Map();  // uuid → leaderboard entry (for showApiPlayerDetail)
+
+    function _toLabel(sport) { return sport.charAt(0).toUpperCase() + sport.slice(1); }
+
+    async function fetchLeaderboard(sportChipKey) {
+      const apiSport = _API_SPORT_MAP[sportChipKey];
+      if (!apiSport) return null;
+      try {
+        const data = await _apiGet(`/api/v1/players/leaderboard/${apiSport}`);
+        data.forEach(e => _apiPlayerCache.set(e.player_id, e));
+        return data;
+      } catch (err) {
+        console.warn('Leaderboard fetch failed, using mock:', err.message);
+        return null;
+      }
+    }
+
+    function _renderApiPodium(players) {
+      const podium = document.getElementById('rankings-podium');
+      if (!players || players.length === 0) { podium.style.display = 'none'; return; }
+      podium.style.display = '';
+      const first  = players[0] || null;
+      const second = players[1] || null;
+      const third  = players[2] || null;
+      function slot(p, medal, barH, avSz, ringCls, barCls, nameCls, ratCls) {
+        if (!p) return `<div class="flex-1"></div>`;
+        const first1 = p.name.split(' ')[0];
+        return `<div onclick="showApiPlayerDetail('${p.id}')"
+                     class="flex-1 flex flex-col items-center gap-1 cursor-pointer active:scale-95 transition-transform">
+          <div class="${avSz} rounded-full ${ringCls} flex items-center justify-center">
+            <span class="font-bold ${nameCls}">${p.initial}</span>
+          </div>
+          <p class="${nameCls} text-[10px] font-semibold truncate w-full text-center px-1 leading-tight">${first1}</p>
+          <div class="w-full ${barH} rounded-t-xl ${barCls} flex flex-col items-center justify-end pb-2 gap-0.5">
+            <span class="${nameCls} text-[10px] font-semibold opacity-70">${medal}</span>
+            <span class="${ratCls} text-xs font-extrabold tabular-nums">${p._rating}</span>
+          </div>
+        </div>`;
+      }
+      podium.innerHTML =
+        slot(second,'🥈 2nd','h-16','w-12 h-12','bg-navy-700 border-2 border-white/20','bg-navy-800 border border-white/8','text-white/55','text-white/55') +
+        slot(first, '🥇 1st','h-24','w-14 h-14','bg-teal-glow/15 border-2 border-teal-glow/60 shadow-teal-glow-sm','bg-teal-glow/10 border border-teal-glow/30','text-teal-glow','text-teal-glow') +
+        slot(third, '🥉 3rd','h-12','w-12 h-12','bg-navy-700 border-2 border-white/20','bg-navy-800 border border-white/8','text-white/55','text-white/55');
+    }
+
+    function renderApiLeaderboard(entries, sportLabel) {
+      // sync chip active states
+      document.querySelectorAll('.sport-chip').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.sport === sportLabel.toLowerCase());
+      });
+
+      const titleEl = document.getElementById('rankings-title');
+      if (titleEl) titleEl.textContent = `Top ${sportLabel} Players`;
+
+      const players = entries.map(e => ({
+        id:      e.player_id,
+        name:    e.display_name,
+        initial: e.display_name[0].toUpperCase(),
+        _rating: Math.round(e.current_rating),
+        _sport:  _toLabel(e.sport),
+      }));
+
+      _renderApiPodium(players.slice(0, 3));
+
+      const container = document.getElementById('rankings-list');
+      const list      = players.slice(3);
+      if (list.length === 0) { container.innerHTML = ''; return; }
+      container.innerHTML = list.map((p, i) => `
+        <div class="player-row flex items-center gap-3 px-4 py-3 rounded-2xl bg-navy-800 border border-white/5
+                    cursor-pointer hover:border-teal-glow/25 active:scale-[0.98] transition-all"
+             onclick="showApiPlayerDetail('${p.id}')">
+          <span class="rank-num text-white/25 text-xs w-5 text-center font-mono">${i + 4}</span>
+          <div class="w-8 h-8 rounded-full bg-navy-700 border border-white/10
+                      flex items-center justify-center flex-shrink-0">
+            <span class="text-xs font-bold text-white/50">${p.initial}</span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-white/80 text-sm font-semibold truncate">${p.name}</p>
+            <p class="text-white/30 text-xs">${p._sport}</p>
+          </div>
+          <span class="text-teal-glow text-sm font-bold">${p._rating}</span>
+        </div>`).join('');
+    }
+
+    async function showApiPlayerDetail(playerUuid) {
+      _currentDetailPlayerUuid = playerUuid;
+      _currentDetailPlayer = null;
+      _currentDetailPlayerIsFollowing = false;
+
+      // Open overlay immediately with loading state
+      const overlay = document.getElementById('player-detail-overlay');
+      overlay.scrollTop = 0;
+      overlay.classList.add('pd-open');
+      document.getElementById('pd-title').textContent         = 'Loading…';
+      document.getElementById('pd-initial').textContent       = '…';
+      document.getElementById('pd-name').textContent          = '';
+      document.getElementById('pd-bio').textContent           = '';
+      document.getElementById('pd-meta').textContent          = '';
+      document.getElementById('pd-rating').textContent        = '—';
+      document.getElementById('pd-followers').textContent     = '—';
+      document.getElementById('pd-following').textContent     = '—';
+      document.getElementById('pd-wins').textContent          = '—';
+      document.getElementById('pd-losses').textContent        = '—';
+      document.getElementById('pd-badges').innerHTML          = '';
+      document.getElementById('pd-stats-panel').innerHTML     = '';
+      document.getElementById('pd-highlights-grid').innerHTML = '';
+      const tabsEl = document.getElementById('pd-sport-tabs');
+      if (tabsEl) tabsEl.classList.add('hidden');
+
+      // Determine if this is the logged-in user
+      const myUuid = _myProfile?.id || (_jwt ? _decodeJwtPayload(_jwt)?.sub : null);
+      const isMe = myUuid && String(playerUuid) === String(myUuid);
+
+      const followBtn = document.getElementById('pd-follow-btn');
+      const inviteBtn = document.getElementById('pd-invite-btn');
+      if (isMe) {
+        followBtn.textContent = 'Edit Profile';
+        followBtn.style.cssText = '';
+        if (inviteBtn) inviteBtn.classList.add('hidden');
+      } else {
+        followBtn.textContent = 'Follow';
+        followBtn.style.cssText = '';
+        if (inviteBtn) inviteBtn.classList.remove('hidden');
+      }
+
+      // Quick stats from leaderboard cache if available
+      const cached = _apiPlayerCache.get(playerUuid);
+      if (cached) {
+        const label = _toLabel(cached.sport);
+        document.getElementById('pd-rating').textContent = Math.round(cached.current_rating);
+        document.getElementById('pd-wins').textContent   = cached.wins;
+        document.getElementById('pd-losses').textContent = cached.losses;
+        if (tabsEl) {
+          tabsEl.innerHTML = `<button class="sport-tab-btn flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border border-teal-glow/40 bg-teal-glow/10 text-teal-glow">${label}</button>`;
+          tabsEl.classList.remove('hidden');
+        }
+      }
+
+      // Fetch full profile from API
+      try {
+        const profile = await _apiGet(`/api/v1/players/${playerUuid}`);
+        document.getElementById('pd-title').textContent     = profile.display_name;
+        document.getElementById('pd-initial').textContent   = profile.display_name[0].toUpperCase();
+        document.getElementById('pd-name').textContent      = profile.display_name;
+        document.getElementById('pd-bio').textContent       = profile.bio || (cached ? `${_toLabel(cached.sport)} player` : '');
+        const cityPart = profile.city ? ` · ${profile.city}` : '';
+        document.getElementById('pd-meta').textContent      = `@${profile.username}${cityPart}`;
+        document.getElementById('pd-followers').textContent = profile.follower_count;
+        document.getElementById('pd-following').textContent = profile.following_count;
+      } catch (err) {
+        console.warn('[SportOut] Player profile fetch failed:', err.message);
+        if (cached) {
+          document.getElementById('pd-title').textContent   = cached.display_name;
+          document.getElementById('pd-initial').textContent = cached.display_name[0].toUpperCase();
+          document.getElementById('pd-name').textContent    = cached.display_name;
+        } else {
+          document.getElementById('pd-title').textContent = 'Player';
+          document.getElementById('pd-bio').textContent   = 'Could not load profile';
+        }
+      }
+
+      // Check follow state (only for others, only if logged in)
+      if (_jwt && !isMe) {
+        try {
+          const fd = await _apiGet(`/api/v1/players/${playerUuid}/is_following`);
+          _currentDetailPlayerIsFollowing = fd.is_following;
+          _updateFollowBtnState(followBtn, _currentDetailPlayerIsFollowing);
+        } catch (_) {}
+      }
+    }
+
+    async function fetchApiRankings() {
+      const podium    = document.getElementById('rankings-podium');
+      const container = document.getElementById('rankings-list');
+      const titleEl   = document.getElementById('rankings-title');
+      document.querySelectorAll('.sport-chip').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.sport === 'all');
+      });
+      try {
+        const players = await _apiGet('/api/v1/players/');
+        if (titleEl) titleEl.textContent = 'All Players';
+        if (!players || players.length === 0) {
+          if (podium) podium.style.display = 'none';
+          if (container) container.innerHTML = `
+            <div class="py-10 flex flex-col items-center gap-2">
+              <p class="text-white/30 text-sm font-medium">No players yet</p>
+              <p class="text-white/20 text-xs">Be the first to join!</p>
+            </div>`;
+          return;
+        }
+        const mapped = players.map(p => ({
+          id: p.id, name: p.display_name,
+          initial: p.display_name[0].toUpperCase(), _rating: '—', _sport: 'Player',
+        }));
+        _renderApiPodium(mapped.slice(0, 3));
+        const list = mapped.slice(3);
+        if (container) {
+          container.innerHTML = list.length === 0 ? '' : list.map((p, i) => `
+            <div class="player-row flex items-center gap-3 px-4 py-3 rounded-2xl bg-navy-800 border border-white/5
+                        cursor-pointer hover:border-teal-glow/25 active:scale-[0.98] transition-all"
+                 onclick="showApiPlayerDetail('${p.id}')">
+              <span class="rank-num text-white/25 text-xs w-5 text-center font-mono">${i + 4}</span>
+              <div class="w-8 h-8 rounded-full bg-navy-700 border border-white/10
+                          flex items-center justify-center flex-shrink-0">
+                <span class="text-xs font-bold text-white/50">${p.initial}</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-white/80 text-sm font-semibold truncate">${p.name}</p>
+                <p class="text-white/30 text-xs">${p._sport}</p>
+              </div>
+              <span class="text-teal-glow text-sm font-bold">${p._rating}</span>
+            </div>`).join('');
+        }
+      } catch (err) {
+        console.warn('[SportOut] Rankings fetch failed:', err.message);
+        if (podium) podium.style.display = 'none';
+        if (container) container.innerHTML = `
+          <div class="py-10 flex flex-col items-center gap-2">
+            <p class="text-white/30 text-sm font-medium">Could not load players</p>
+          </div>`;
+      }
+    }
+
+    async function fetchAndPopulateProfileFromApi() {
+      if (!_jwt) return;
+      try {
+        const me = await _apiGet('/api/v1/players/me');
+        _myProfile = me;
+        const nameEl      = document.getElementById('my-profile-name');
+        const subtitleEl  = document.getElementById('my-profile-subtitle');
+        const bioEl       = document.getElementById('my-profile-bio');
+        const followersEl = document.getElementById('my-followers');
+        const followingEl = document.getElementById('my-following');
+        if (nameEl)      nameEl.textContent = me.display_name;
+        const sidebarName = document.getElementById('nav-sidebar-name');
+        if (sidebarName) sidebarName.textContent = me.display_name;
+        if (subtitleEl) {
+          const cityPart = me.city ? ` · ${me.city}` : '';
+          subtitleEl.textContent = `@${me.username}${cityPart}`;
+        }
+        if (bioEl) bioEl.textContent = me.bio || '';
+        if (followersEl) followersEl.textContent = me.follower_count;
+        if (followingEl) followingEl.textContent = me.following_count;
+      } catch (err) {
+        console.warn('[SportOut] Profile fetch failed:', err.message);
+      }
+    }
+
+    // Override filterBySport — use API for supported sports, mock for the rest
+    const _origFilterBySport = filterBySport;
+    window.filterBySport = async function(sport) {
+      if (sport === 'all') { await fetchApiRankings(); return; }
+      if (_API_SPORT_MAP[sport]) {
+        const data = await fetchLeaderboard(sport);
+        if (data) { renderApiLeaderboard(data, _toLabel(_API_SPORT_MAP[sport])); return; }
+      }
+      _origFilterBySport(sport);
+    };
+
+    // ── Matches API ─────────────────────────────────────────────────────
+    const _MATCH_EMOJI = { padel:'🎾', tennis:'🎾', soccer:'⚽', football:'⚽', basketball:'🏀',
+                           tabletennis:'🏓', footvolley:'🏐', boxing:'🥊' };
+
+    async function fetchAndRenderMatches() {
+      const container = document.getElementById('matches-feed');
+      if (!container) return;
+      if (!_jwt) {
+        renderMatchesTab();
+        // Append a soft CTA to log in
+        const cta = document.createElement('div');
+        cta.className = 'col-span-2 mt-2 py-3 text-center';
+        cta.innerHTML = `<button onclick="showLoginModal()"
+          class="text-xs text-teal-glow font-semibold border border-teal-glow/25 px-4 py-2 rounded-full
+                 hover:bg-teal-glow/10 transition-colors">
+          Sign in to load live matches
+        </button>`;
+        container.appendChild(cta);
+        return;
+      }
+      try {
+        const matches = await _apiGet('/api/v1/matches/?limit=20');
+        if (!matches || matches.length === 0) {
+          renderMatchesTab();
+          return;
+        }
+        container.innerHTML = matches.map(m => {
+          const sport   = m.sport || 'sport';
+          const label   = _toLabel(sport);
+          const emoji   = _MATCH_EMOJI[sport.toLowerCase()] || '🎯';
+          const roster  = m.rosters || [];
+          const missing = Math.max(0, m.max_players - roster.length);
+          const dt      = new Date(m.scheduled_at);
+          const timeStr = dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const dateStr = dt.toLocaleDateString([], { month: 'short', day: 'numeric' });
+          const bracket = (m.min_rating && m.max_rating)
+            ? `${Math.round(m.min_rating)}–${Math.round(m.max_rating)}`
+            : 'Open';
+          let badgeCls = missing >= 4 ? 'bg-red-500/20 border border-red-500/40 text-red-500'
+                       : missing >= 2 ? 'bg-amber-500/15 border border-amber-400/40 text-amber-400'
+                       : missing === 1 ? 'bg-teal-glow/10 border border-teal-glow/30 text-teal-glow'
+                       :                'bg-white/5 border border-white/10 text-white/40';
+          const neededText = missing === 0 ? 'Full' : missing === 1 ? '1 Needed' : `${missing} Needed`;
+          const shown   = roster.slice(0, 4);
+          const extra   = roster.length - shown.length;
+          const avatars = shown.map(r => `
+            <div class="w-9 h-9 rounded-full bg-navy-700 border-2 border-navy-900
+                        flex items-center justify-center -ml-2 first:ml-0 flex-shrink-0">
+              <span class="text-xs font-bold text-teal-glow">${r.player_id.slice(0, 1).toUpperCase()}</span>
+            </div>`).join('');
+          const extraEl = extra > 0
+            ? `<div class="w-9 h-9 rounded-full bg-navy-800 border-2 border-navy-900
+                           flex items-center justify-center -ml-2 flex-shrink-0">
+                 <span class="text-[10px] font-bold text-white/35">+${extra}</span>
+               </div>` : '';
+          return `
+            <div class="w-full rounded-2xl bg-navy-800 border border-white/5 shadow-card p-4
+                        cursor-pointer hover:border-teal-glow/30 active:scale-[0.98] transition-all">
+              <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2">
+                  <span class="text-base leading-none">${emoji}</span>
+                  <span class="text-white font-semibold text-sm">${label}</span>
+                  <span class="text-white/20 text-xs">·</span>
+                  <span class="text-white/40 text-xs font-medium">${m.format}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-white/30 text-xs font-mono">${timeStr}</span>
+                  <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold ${badgeCls}">${neededText}</span>
+                </div>
+              </div>
+              <p class="text-white/45 text-xs mb-3 flex items-center gap-1.5">
+                <svg class="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                </svg>
+                ${dateStr} · Rating ${bracket} · ${m.max_players} max
+              </p>
+              <div class="flex items-center justify-between">
+                <div class="flex items-center pl-2">${avatars}${extraEl}</div>
+                <div class="text-center">
+                  <p class="text-teal-glow font-bold text-sm leading-tight tabular-nums">${roster.length}/${m.max_players}</p>
+                  <p class="text-white/30 text-[9px]">Players</p>
+                </div>
+              </div>
+            </div>`;
+        }).join('');
+      } catch (err) {
+        console.warn('Matches fetch failed, using mock:', err.message);
+        renderMatchesTab();
+        if (_jwt) showToast('Could not reach server — showing sample data');
+      }
+    }
+
+    // ── Player count ──────────────────────────────────────────────────
+    function updateLandingCount(n) {
+      const el = document.getElementById('landing-count-num');
+      if (el) el.textContent = n;
+    }
+    async function fetchPlayerCount() {
+      try {
+        const data = await _apiGet('/api/v1/players/count');
+        updateLandingCount(data.total_players);
+        const tpEl = document.getElementById('stat-total-players');
+        if (tpEl) tpEl.textContent = data.total_players;
+      } catch (e) {
+        console.warn('[SportOut] fetchPlayerCount failed:', e.message);
+      }
+    }
+
+    /* ─────────────────────────────────────────────────────────────────── */
+
     // Boot — generate to 1000, build indexes, render
     PLAYERS.push(...generateMockPlayers(1000 - PLAYERS.length));
     buildPlayerIndex();
@@ -3158,11 +3946,14 @@
       p.followingCount = getFollowing(p.id);
       if (p.id !== 2) p.isFollowedByMe = false; // Ron (id:2) is the logged-in user
     });
-    navigateTo('feed');
-    renderMyProfile();
-    renderMatchesTab();
-    filterLeaderboard({});
+    validateSessionOnLoad();
+    navigateTo(_jwt ? 'feed' : 'landing');
+    if (_jwt) fetchAndRenderMatches();
+    fetchApiRankings();
+    refreshAuthUI();
+    if (_jwt) fetchAndPopulateProfileFromApi();
     initNearbyCourts();
+    fetchPlayerCount();
 
     /* ── Dynamic global stats ── */
     (function updateDynamicStats() {
@@ -3170,14 +3961,6 @@
       const totalCourts  = COURTS.length;
       const liveCourts   = COURTS.filter(c => c.live).length;
       const liveTxt      = liveCourts + ' Courts Live';
-
-      // Leaderboard cards on Feed
-      const tpEl = document.getElementById('stat-total-players');
-      if (tpEl) tpEl.innerHTML = totalPlayers >= 1000
-        ? `${(totalPlayers / 1000).toFixed(1)}<span class="text-base">k</span>`
-        : totalPlayers;
-      const tcEl = document.getElementById('stat-total-courts');
-      if (tcEl) tcEl.textContent = totalCourts;
 
       // Live-count chips (feed map + fullscreen modal)
       const feedLive = document.getElementById('feed-live-count');
@@ -3188,15 +3971,187 @@
       // "X live" label in Nearby Courts header
       const nearbyLive = document.getElementById('nearby-live-count');
       if (nearbyLive) nearbyLive.textContent = liveCourts + ' live';
-
-      // My Profile social stats (Ron = id 2) — read from stamped player object
-      const myFollowersEl = document.getElementById('my-followers');
-      const myFollowingEl = document.getElementById('my-following');
-      const ron = getPlayer(2);
-      if (myFollowersEl && ron) myFollowersEl.textContent = fmtSocial(ron.followersCount);
-      if (myFollowingEl && ron) myFollowingEl.textContent = fmtSocial(ron.followingCount);
     })();
   </script>
+
+  <!-- ── Login / Register modal ──────────────────────────────────────── -->
+  <div id="login-modal"
+       class="hidden fixed inset-0 z-[200] flex items-center justify-center bg-black/75 backdrop-blur-sm px-4">
+    <div class="w-full max-w-sm bg-navy-800 border border-white/10 rounded-3xl p-6 shadow-2xl overflow-y-auto max-h-[92vh]">
+      <div class="flex items-center justify-between mb-5">
+        <div>
+          <h2 class="text-white font-bold text-lg leading-tight">Welcome</h2>
+          <p class="text-white/30 text-xs mt-0.5">Access live matches &amp; leaderboard</p>
+        </div>
+        <button onclick="hideLoginModal()"
+                class="w-8 h-8 flex items-center justify-center rounded-full bg-white/5
+                       text-white/40 hover:text-white/80 text-lg leading-none transition-colors">×</button>
+      </div>
+
+      <!-- Tab switcher -->
+      <div class="flex rounded-xl bg-navy-900 p-1 mb-5">
+        <button id="tab-signin" onclick="switchAuthTab('signin')"
+                class="flex-1 py-2 rounded-lg text-sm font-semibold transition-colors text-teal-glow bg-navy-700">
+          Sign In
+        </button>
+        <button id="tab-signup" onclick="switchAuthTab('signup')"
+                class="flex-1 py-2 rounded-lg text-sm font-semibold transition-colors text-white/40">
+          Sign Up
+        </button>
+      </div>
+
+      <!-- ── Sign In form ── -->
+      <form id="form-signin" onsubmit="handleLoginSubmit(event)" class="flex flex-col gap-4">
+        <div>
+          <label class="text-white/40 text-[10px] font-semibold tracking-widest uppercase mb-1.5 block">Email</label>
+          <input id="login-email" type="email" required autocomplete="email"
+                 placeholder="your@email.com" style="font-size:16px"
+                 class="w-full bg-navy-900 border border-white/10 rounded-xl px-4 py-3 text-white text-sm
+                        placeholder-white/20 focus:outline-none focus:border-teal-glow/50 transition-colors"/>
+        </div>
+        <div>
+          <label class="text-white/40 text-[10px] font-semibold tracking-widest uppercase mb-1.5 block">Password</label>
+          <input id="login-pass" type="password" required autocomplete="current-password"
+                 placeholder="••••••••" style="font-size:16px"
+                 class="w-full bg-navy-900 border border-white/10 rounded-xl px-4 py-3 text-white text-sm
+                        placeholder-white/20 focus:outline-none focus:border-teal-glow/50 transition-colors"/>
+        </div>
+        <p id="login-error" class="text-red-400 text-xs min-h-[1rem] -mt-1"></p>
+        <button type="submit"
+                class="w-full bg-teal-glow/15 border border-teal-glow/40 text-teal-glow font-bold
+                       py-3 rounded-xl hover:bg-teal-glow/25 active:scale-[0.98] transition-all text-sm">
+          Sign In
+        </button>
+      </form>
+
+      <!-- ── Sign Up form (hidden initially) ── -->
+      <form id="form-signup" onsubmit="handleRegisterSubmit(event)" class="hidden flex flex-col gap-3">
+        <div>
+          <label class="text-white/40 text-[10px] font-semibold tracking-widest uppercase mb-1.5 block">Display Name</label>
+          <input id="reg-displayname" type="text" required minlength="2" maxlength="100"
+                 placeholder="Your full name" style="font-size:16px"
+                 class="w-full bg-navy-900 border border-white/10 rounded-xl px-4 py-3 text-white text-sm
+                        placeholder-white/20 focus:outline-none focus:border-teal-glow/50 transition-colors"/>
+        </div>
+        <div>
+          <label class="text-white/40 text-[10px] font-semibold tracking-widest uppercase mb-1.5 block">Username</label>
+          <input id="reg-username" type="text" required minlength="3" maxlength="50"
+                 pattern="[a-zA-Z0-9_]+" title="Letters, numbers and underscores only"
+                 placeholder="your_username" style="font-size:16px"
+                 class="w-full bg-navy-900 border border-white/10 rounded-xl px-4 py-3 text-white text-sm
+                        placeholder-white/20 focus:outline-none focus:border-teal-glow/50 transition-colors"/>
+        </div>
+        <div>
+          <label class="text-white/40 text-[10px] font-semibold tracking-widest uppercase mb-1.5 block">Email</label>
+          <input id="reg-email" type="email" required autocomplete="email"
+                 placeholder="your@email.com" style="font-size:16px"
+                 class="w-full bg-navy-900 border border-white/10 rounded-xl px-4 py-3 text-white text-sm
+                        placeholder-white/20 focus:outline-none focus:border-teal-glow/50 transition-colors"/>
+        </div>
+        <div>
+          <label class="text-white/40 text-[10px] font-semibold tracking-widest uppercase mb-1.5 block">Password</label>
+          <input id="reg-pass" type="password" required minlength="8"
+                 placeholder="Min 8 characters" style="font-size:16px"
+                 class="w-full bg-navy-900 border border-white/10 rounded-xl px-4 py-3 text-white text-sm
+                        placeholder-white/20 focus:outline-none focus:border-teal-glow/50 transition-colors"/>
+        </div>
+        <p id="reg-error" class="text-red-400 text-xs min-h-[1rem] -mt-1"></p>
+        <button type="submit"
+                class="w-full bg-teal-glow/15 border border-teal-glow/40 text-teal-glow font-bold
+                       py-3 rounded-xl hover:bg-teal-glow/25 active:scale-[0.98] transition-all text-sm">
+          Create Account
+        </button>
+      </form>
+
+      <!-- Social login -->
+      <div class="mt-5">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="flex-1 h-px bg-white/10"></div>
+          <span class="text-white/25 text-[10px] font-semibold tracking-wider">OR CONTINUE WITH</span>
+          <div class="flex-1 h-px bg-white/10"></div>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="handleSocialLogin('google')"
+                  class="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl
+                         bg-white/5 border border-white/10 text-white/60 text-sm font-medium
+                         hover:bg-white/10 active:scale-[0.98] transition-all">
+            <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none">
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+            </svg>
+            Google
+          </button>
+          <button onclick="handleSocialLogin('instagram')"
+                  class="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl
+                         bg-white/5 border border-white/10 text-white/60 text-sm font-medium
+                         hover:bg-white/10 active:scale-[0.98] transition-all">
+            <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+            </svg>
+            Instagram
+          </button>
+        </div>
+      </div>
+
+      <p id="seed-hint" class="text-white/20 text-[11px] text-center mt-4">
+        Seed account: ron@seed.sportout.test · SportOut123!
+      </p>
+    </div>
+  </div>
+
+  <!-- ── Edit Profile modal ────────────────────────────────────────────── -->
+  <div id="edit-profile-modal"
+       class="hidden fixed inset-0 z-[200] flex items-center justify-center bg-black/75 backdrop-blur-sm px-4">
+    <div class="w-full max-w-sm bg-navy-800 border border-white/10 rounded-3xl p-6 shadow-2xl overflow-y-auto max-h-[92vh]">
+      <div class="flex items-center justify-between mb-5">
+        <div>
+          <h2 class="text-white font-bold text-lg leading-tight">Edit Profile</h2>
+          <p class="text-white/30 text-xs mt-0.5">Update your public info</p>
+        </div>
+        <button onclick="closeEditProfileModal()"
+                class="w-8 h-8 flex items-center justify-center rounded-full bg-white/5
+                       text-white/40 hover:text-white/80 text-lg leading-none transition-colors">×</button>
+      </div>
+      <form onsubmit="handleEditProfileSave(event)" class="flex flex-col gap-4">
+        <div>
+          <label class="text-white/40 text-[10px] font-semibold tracking-widest uppercase mb-1.5 block">Display Name</label>
+          <input id="ep-displayname" type="text" maxlength="100" style="font-size:16px"
+                 placeholder="Your name"
+                 class="w-full bg-navy-900 border border-white/10 rounded-xl px-4 py-3 text-white text-sm
+                        placeholder-white/20 focus:outline-none focus:border-teal-glow/50 transition-colors"/>
+        </div>
+        <div>
+          <label class="text-white/40 text-[10px] font-semibold tracking-widest uppercase mb-1.5 block">City</label>
+          <input id="ep-city" type="text" maxlength="100" style="font-size:16px"
+                 placeholder="Tel Aviv"
+                 class="w-full bg-navy-900 border border-white/10 rounded-xl px-4 py-3 text-white text-sm
+                        placeholder-white/20 focus:outline-none focus:border-teal-glow/50 transition-colors"/>
+        </div>
+        <div>
+          <label class="text-white/40 text-[10px] font-semibold tracking-widest uppercase mb-1.5 block">Bio</label>
+          <textarea id="ep-bio" maxlength="500" rows="3" style="font-size:16px"
+                    placeholder="Tell your story…"
+                    class="w-full bg-navy-900 border border-white/10 rounded-xl px-4 py-3 text-white text-sm
+                           placeholder-white/20 focus:outline-none focus:border-teal-glow/50 transition-colors resize-none"></textarea>
+        </div>
+        <div>
+          <label class="text-white/40 text-[10px] font-semibold tracking-widest uppercase mb-1.5 block">Avatar URL</label>
+          <input id="ep-avatar" type="url" maxlength="512" style="font-size:16px"
+                 placeholder="https://…"
+                 class="w-full bg-navy-900 border border-white/10 rounded-xl px-4 py-3 text-white text-sm
+                        placeholder-white/20 focus:outline-none focus:border-teal-glow/50 transition-colors"/>
+        </div>
+        <p id="ep-error" class="text-red-400 text-xs min-h-[1rem] -mt-1"></p>
+        <button type="submit"
+                class="w-full bg-teal-glow/15 border border-teal-glow/40 text-teal-glow font-bold
+                       py-3 rounded-xl hover:bg-teal-glow/25 active:scale-[0.98] transition-all text-sm">
+          Save Changes
+        </button>
+      </form>
+    </div>
+  </div>
 
 </body>
 </html>

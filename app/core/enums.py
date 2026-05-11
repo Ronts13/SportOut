@@ -4,6 +4,8 @@ from enum import Enum
 class Sport(str, Enum):
     SOCCER = "soccer"
     BASKETBALL = "basketball"
+    PADEL = "padel"
+    TENNIS = "tennis"
 
 
 class MatchStatus(str, Enum):

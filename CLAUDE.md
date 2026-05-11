@@ -10,10 +10,11 @@ This file covers architecture, current state, invariants, and what to build next
 <project_context>
 **Project:** SportOut
 **Mission:** To change amateur sports in the world by providing a hardcore street sports platform for competitive players.
-**Current Phase:** Football MVP.
-**Core Feature:** "AI Combine" — A player evaluation system mapped to 4 pillars (Pace, Shooting, Dribbling, Technique).
-**Methodology:** We currently use a "Wizard of Oz" approach. Users upload videos of specific drills, and admins manually score them via the backend. This manual scoring serves as ground-truth data for future Computer Vision (CV) training.
-**Vibe:** Elite, authentic street sports.
+**Current Phase:** Football (Soccer) MVP — this is the primary and only sport for v1 launch.
+**Core Feature:** "AI Combine" — A player evaluation system mapped to 4 Football pillars (Pace, Shooting, Dribbling, Technique). Drills are fully designed in `MVP_DRILLS_PLAN.md`.
+**Methodology:** We use a "Wizard of Oz" approach. Users upload drill videos; admins manually score them via the backend. Manual scores are direct ground-truth labels for future Computer Vision (CV) training.
+**Vibe:** Elite, authentic street football.
+**Long-term vision:** Global multi-sport social network. Padel, Tennis, Basketball are future expansions — their schemas exist in the codebase but are NOT the current focus.
 </project_context>
 
 <critical_rules>
@@ -207,47 +208,48 @@ Match ──N:1── Facility
 
 ## 6. Current Implementation State
 
-### Done (production-quality code)
-- All SQLAlchemy models with proper indexes, constraints, and cascade rules
-- Alembic initial migration (all 14 tables)
-- `EloRatingEngine` with format weights and peer review integration
-- `RatingContext` / `RatingDelta` dataclasses
-- `FilmingProvider` ABC + `ManualUploadAdapter` (working)
-- `PixellotAdapter` (stub — raises `NotImplementedError`, blocked on OQ-02)
-- `MatchmakingEngine` ABC + `MatchmakingQuery` / `MatchSuggestion` dataclasses
-- All Pydantic schemas (Create / Out / Update shapes)
-- `BasketballGameStats` + `SoccerGameStats` with cross-field validators
-- `STAT_SCHEMAS` registry + `validate_game_stats()`
-- JWT auth helpers (`create_access_token`, `decode_access_token`)
-- `get_current_user`, `get_current_facility_manager`, `get_current_admin` FastAPI dependencies
-- Celery app factory + task stubs with retry logic
-- Docker Compose (db + app services)
-- `test_pulse.py` — schema + engine smoke tests (no DB needed)
+### Done — committed to git
+- All SQLAlchemy ORM models (14 tables), Alembic initial migration
+- `EloRatingEngine` (`elo_v1`) — pure, fully tested via `test_pulse.py`
+- `RatingContext` / `RatingDelta` dataclasses + pure helpers (`determine_match_result`, `opponent_avg_rating`)
+- `FilmingProvider` ABC + `ManualUploadAdapter` (working), `PixellotAdapter` (stub — OQ-02)
+- `MatchmakingEngine` ABC + dataclasses (stub, no concrete implementation)
+- All Pydantic schemas: player, match, facility, rating (incl. `CombineScoreCreate/Out`), media
+- `SoccerGameStats` + `BasketballGameStats` validators, `STAT_SCHEMAS` registry
+- JWT auth helpers + FastAPI auth dependencies
+- Docker Compose (db + app — Redis/worker still missing)
+- `test_pulse.py` smoke tests
 
-### Mock Data (hardcoded, no DB)
-- `GET /api/v1/players/leaderboard/{sport}` — 8 hardcoded players
-- `GET /api/v1/players/{player_id}` — profiles derived from the 8 mock players
-- `GET /api/v1/facilities/nearby` — 3 hardcoded Tel Aviv facilities (Sportek, Dubnov, Padel Expo)
+### Done — uncommitted (staged for next commit)
+- `POST /auth/token` — login endpoint, fully implemented (`app/api/auth.py`)
+- `POST /api/v1/players/` — register (User + Player atomic transaction, duplicate guards)
+- `GET /api/v1/players/leaderboard/{sport}` — real DB query on `sport_profiles`, city filter, rank
+- `POST /api/v1/matches/` — create match + auto-roster the creator
+- `GET /api/v1/matches/` — list open matches with optional PostGIS proximity + rating bracket filter
+- `GET /api/v1/matches/{id}` — fetch single match
+- `POST /api/v1/matches/{id}/join` — join with rating bracket enforcement
+- `DELETE /api/v1/matches/{id}/leave` — leave (blocked if in-progress/completed)
+- `POST /api/v1/matches/{id}/result` — submit home/away scores
+- `POST /api/v1/matches/{id}/result/confirm` — 50% quorum logic → enqueues Celery task
+- `recalculate_match_ratings` Celery task — **fully implemented** (loads match, builds RatingContext per player, appends RatingEvent rows, updates SportProfile cache)
+- `Sport.PADEL` + `Sport.TENNIS` added to enum; `PadelGameStats`, `TennisGameStats` schemas registered
+- `seed_db.py` + `wipe_db.py` utility scripts
+- `CURRENT_STATE.md` snapshot (will be deleted — stale, replaced by this section)
 
-### Not Implemented (raise `NotImplementedError`)
-All endpoints below need real DB service layer code:
-- `POST /api/v1/players/` — register player (creates User + Player in a transaction)
-- `PATCH /api/v1/players/{player_id}` — update profile fields
-- `GET /api/v1/players/{player_id}/rating/{sport}` — rating history
+### Not Implemented (raise `NotImplementedError` or missing)
+- `POST /api/v1/matches/{id}/stats` — submit per-player game stats (Football: goals, assists, shots, position)
+- `POST /api/v1/players/{id}/combine-score` — admin endpoint to manually score a player's AI Combine
+- `GET /api/v1/players/{player_id}/rating/{sport}` — rating history time-series
 - `GET /api/v1/players/{player_id}/highlights`
-- `POST/DELETE /api/v1/players/{player_id}/follow`
-- `POST /api/v1/players/reviews` + confirm
-- **All** `/api/v1/matches/*` endpoints
-- `GET /api/v1/facilities/{facility_id}`
-- `PATCH /api/v1/facilities/courts/{court_id}/live`
+- `POST/DELETE /api/v1/players/{player_id}/follow` — follow/unfollow + counter sync
+- `POST /api/v1/players/reviews` + `/reviews/{id}/confirm` — peer review flow
+- `PATCH /api/v1/players/{player_id}` — profile update
+- `GET /api/v1/facilities/{facility_id}` — needs geometry→lat/lon extraction
+- `PATCH /api/v1/facilities/courts/{court_id}/live` — live court state
 - **All** `/api/v1/media/*` endpoints
-- `/auth/token` — the OAuth2 token endpoint (referenced in `dependencies.py` but router not created)
-
-### Worker Task Stubs (structure correct, logic missing)
-- `recalculate_match_ratings(match_id)` — step-by-step logic is documented in the docstring
-- `replay_ratings_for_algorithm(sport, new_version)` — full replay on algorithm change
-- `process_media_session(media_session_id)` — full video pipeline
-- `generate_player_highlight(media_session_id, player_id)` — per-player clip generation
+- Redis + Celery worker services in `docker-compose.yml`
+- Frontend not yet wired to API (static mock arrays — needs `fetch()` calls)
+- Football leaderboard mock data in frontend still shows Padel/Tennis players
 
 ---
 
@@ -311,8 +313,9 @@ python test_pulse.py
 4. Add the sport value to `Sport` enum in `app/core/enums.py`
 5. No DB migration needed — stats are stored as JSONB
 
-**Currently registered:** `Sport.SOCCER` → `SoccerGameStats`, `Sport.BASKETBALL` → `BasketballGameStats`
-**OQ-04:** Volleyball and Futsal are the next candidates.
+**Currently registered:** `Sport.SOCCER` → `SoccerGameStats` (**MVP primary**), `Sport.BASKETBALL` → `BasketballGameStats`, `Sport.PADEL` → `PadelGameStats`, `Sport.TENNIS` → `TennisGameStats`
+**MVP focus:** Football (`Sport.SOCCER`) is the only active sport for v1. The others are registered for future expansion but have no active UI or leaderboard.
+**`SoccerGameStats` fields:** `position_played` (gk/cb/fb/cm/wg/st), `minutes_played`, `goals`, `assists`, `shots_total`, `shots_on_target`, `pass_accuracy_pct`, `distance_covered_km`, `yellow_cards`, `red_cards`. Validator: `shots_on_target ≤ shots_total`.
 
 ---
 
@@ -354,9 +357,11 @@ Or use a SQLAlchemy `ST_X` / `ST_Y` expression in the query.
 - `frontend/index.html` — main SPA (Home, Courts map, Rankings/Leaderboard, LFG matches)
 - `frontend/profile.html` — player profile detail
 
-**Current state:** UI is static/mock. API calls to backend are not yet wired up. The leaderboard data in the frontend matches the mock data in `app/api/players.py` (8 padel/tennis players, Tel Aviv).
+**Current state:** UI is static/mock. API calls to backend are not yet wired up.
 
-**Sports shown in frontend:** Padel, Tennis (these are the real-world survey sports). Backend enums currently have SOCCER + BASKETBALL. These need to be reconciled — the leaderboard mock already uses "padel" as a string.
+**Sports shown in frontend:** Currently displays mock Padel/Tennis leaderboard data — **must be updated to Football before any demo**. The mock array in `app/api/players.py` and the hardcoded JS in `frontend/index.html` both need to reflect Football players.
+
+**Football frontend priorities:** Leaderboard filtered to `sport=soccer`, match creation form with Football positions (gk/cb/fb/cm/wg/st), post-match stat entry form aligned to `SoccerGameStats`.
 
 ---
 
@@ -367,14 +372,13 @@ Or use a SQLAlchemy `ST_X` / `ST_Y` expression in the query.
 - `create_access_token()` / `decode_access_token()` (JWT HS256)
 - FastAPI dependencies: `get_current_user`, `get_current_facility_manager`, `get_current_admin`
 
-**Missing (blockers for real data):**
-- `POST /auth/token` — the actual login endpoint (OAuth2PasswordRequestForm → JWT)
-- `POST /auth/register` → calls `POST /api/v1/players/`
-- Refresh token endpoint
-- Social login (Google/Instagram/Facebook) — in ROADMAP but architecture not decided
-- The `dependencies.py` `oauth2_scheme` points to `/auth/token` which doesn't exist yet
+**Implemented (uncommitted):**
+- `POST /auth/token` — done in `app/api/auth.py`, registered in `app/main.py`
+- `POST /api/v1/players/` — player registration done (User + Player + SportProfile)
 
-**Immediate next step for auth:** Create `app/api/auth.py` router with `/auth/token` (password grant) and register it in `app/main.py`.
+**Still missing:**
+- Refresh token endpoint
+- Social login (Google/Instagram/Facebook) — ROADMAP item, architecture not yet decided
 
 ---
 
@@ -389,20 +393,18 @@ Docker Compose does not yet include a `worker` service — add one when needed.
 
 ### Task Contracts
 
-**`recalculate_match_ratings(match_id: str)`** — triggered after result quorum:
-1. Load Match + MatchRosters (attending only) + PlayerGameStats from DB
-2. For each player: build `RatingContext` (current rating, opponent avg rating, result, stats, peer reviews)
-3. Call `get_active_engine().compute(context)` — pure, no DB access
-4. Append `RatingEvent` rows (NEVER update existing)
-5. Update denormalized `SportProfile.current_rating`
+**`recalculate_match_ratings(match_id: str)`** — **FULLY IMPLEMENTED** (uncommitted). Triggered after 50% quorum on result confirmation:
+1. Idempotency guard: skips if `RatingEvent` rows already exist for this match
+2. Loads Match + MatchRosters + per-roster `game_stats`
+3. Loads `SportProfile` (current ratings) for all attending players
+4. Loads `PeerReview` rows for this match; aggregates per-player mean score
+5. For each attending player: builds `RatingContext` → calls `get_active_engine().compute()` (pure)
+6. Appends `RatingEvent` rows (APPEND ONLY — never UPDATE/DELETE)
+7. Updates denormalized `SportProfile.current_rating` + `career_games` + `career_wins`
 
-**`process_media_session(media_session_id: str)`** — triggered after match completion:
-1. Fetch `MediaSession` + rostered players
-2. Call `get_provider().generate_highlights()` for each player
-3. Persist `Highlight` rows
-4. Call `get_provider().extract_video_metrics()`
-5. Update `MediaSession.video_metrics` + `processing_status`
-6. Enqueue `recalculate_match_ratings` if video metrics available
+**`process_media_session(media_session_id: str)`** — stub. Not needed for Football MVP without Pixellot access.
+
+**`replay_ratings_for_algorithm(sport, new_version)`** — stub. Used only when switching algorithm versions.
 
 ---
 
@@ -410,26 +412,35 @@ Docker Compose does not yet include a `worker` service — add one when needed.
 
 From `PRODUCT_SPEC.md §7` — do not make architectural decisions that close these without discussion:
 
-| ID | Question | Impact |
-|---|---|---|
-| OQ-01 | Final rating algorithm (Elo is placeholder) | Low — architecture is algorithm-agnostic |
-| OQ-02 | Pixellot API access | Medium — `PixellotAdapter` is a stub; `ManualUploadAdapter` is the fallback |
-| OQ-04 | Sports in scope for v1 | High — stat schemas, position enums, frontend sports list all depend on this |
-| OQ-06 | Video consent model (especially minors) | High — legal review required before video features ship |
-| Rating scale | Internal Elo (1000-base) vs. 55–99 display scale | Medium — display transform not yet implemented |
-| Sports mismatch | Frontend shows Padel/Tennis; backend enums have Soccer/Basketball | High — needs decision before any real leaderboard |
+| ID | Question | Impact | Status |
+|---|---|---|---|
+| OQ-01 | Final rating algorithm (Elo is placeholder) | Low — architecture is algorithm-agnostic | Open — Elo v1 ships for MVP |
+| OQ-02 | Pixellot API access | Medium — `PixellotAdapter` is a stub; `ManualUploadAdapter` is the fallback | Open — not blocking Football MVP |
+| OQ-04 | Sports in scope for v1 | **CLOSED** — Football (Soccer) is the v1 MVP sport | Closed |
+| OQ-06 | Video consent model (especially minors) | High — legal review required before video features ship | Open — not blocking text-stat MVP |
+| Rating scale | Internal Elo (1000-base) vs. 55–99 display scale | Medium — display transform not yet implemented | Open — implement in leaderboard API |
+| Sports mismatch | Frontend shows Padel/Tennis; backend has all 4 sports | **CLOSED** — Football is primary; frontend to be updated | Closed |
+| AI Combine flow | Admin scoring endpoint not yet wired to Elo delta | High — needed to connect `CombineScoreCreate` to a `RatingEvent` | Open — next Football sprint |
 
 ---
 
-## 15. Next Sprint Priorities (in order)
+## 15. Next Sprint Priorities — Football MVP (in order)
 
-1. **Auth endpoint** — `POST /auth/token` (login), then `POST /api/v1/players/` (register). Unblocks all real data flows.
-2. **Sport enum reconciliation** — Decide: Soccer/Basketball (PRODUCT_SPEC) vs. Padel/Tennis (ROADMAP survey). Add to `Sport` enum, add stat schemas.
-3. **Match CRUD** — Implement `create_match`, `list_matches` (with PostGIS proximity filter), `join_match`. These are the core LFG flow.
-4. **Rating worker** — Implement `recalculate_match_ratings` task body (logic already documented in docstring).
-5. **Replace mock endpoints with real DB queries** — Start with leaderboard and nearby facilities (both need PostGIS).
-6. **Redis service in docker-compose** — Add a `redis` service so Celery workers can run locally end-to-end.
-7. **Frontend → API wiring** — Replace hardcoded JS arrays with `fetch()` calls to the API.
+**Prerequisite: commit the current uncommitted work first.**
+
+1. **`POST /api/v1/matches/{id}/stats`** — Submit per-player Football game stats (`SoccerGameStats`: goals, assists, shots, position, minutes). Validates via `validate_game_stats(Sport.SOCCER, raw)`. This is the last missing piece of the core match loop.
+
+2. **`POST /api/v1/players/{id}/combine-score` (admin)** — Admin manually enters AI Combine pillar scores (Pace 0–100, Shooting, Dribbling, Technique). Endpoint computes a weighted combine score, appends a `RatingEvent` with `source_type=VIDEO_ANALYSIS`, and updates `SportProfile.current_rating`. Schemas `CombineScoreCreate` / `CombineScoreOut` are already defined in `app/schemas/rating.py`.
+
+3. **Redis + Celery worker in `docker-compose.yml`** — Add `redis` service and a `worker` service (`celery -A app.workers worker`). Without this, `recalculate_match_ratings` is enqueued but never executed.
+
+4. **Football leaderboard mock data** — Update mock array in `app/api/players.py` to use Football players (`sport="soccer"`). Update frontend JS to default to `sport=soccer`.
+
+5. **`GET /api/v1/players/{player_id}/rating/{sport}`** — Rating history time-series from `rating_events`. Drives the profile rating trend chart.
+
+6. **Peer review endpoints** — `POST /api/v1/players/reviews` + `/reviews/{id}/confirm`. Feeds into Elo via `peer_review_score` in `RatingContext`.
+
+7. **Frontend `fetch()` wiring** — Replace hardcoded JS arrays with real API calls: `/players/leaderboard/soccer`, `/matches/`, `/facilities/nearby`. This is the last step before the platform is demoed end-to-end.
 
 ---
 

@@ -2,12 +2,16 @@ from pydantic import BaseModel
 
 from app.core.enums import Sport
 from app.sports.basketball import BasketballGameStats
+from app.sports.padel import PadelGameStats
 from app.sports.soccer import SoccerGameStats
+from app.sports.tennis import TennisGameStats
 
 # New sports are added by registering a schema here — no DB migration needed
 STAT_SCHEMAS: dict[Sport, type[BaseModel]] = {
     Sport.SOCCER: SoccerGameStats,
     Sport.BASKETBALL: BasketballGameStats,
+    Sport.PADEL: PadelGameStats,
+    Sport.TENNIS: TennisGameStats,
 }
 
 
