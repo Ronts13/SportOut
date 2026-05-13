@@ -4,7 +4,7 @@ import traceback
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -321,7 +321,7 @@ async def get_player_highlights(
     raise NotImplementedError
 
 
-@router.post("/{player_id}/follow", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/{player_id}/follow", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
 async def follow_player(
     player_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
@@ -349,7 +349,7 @@ async def follow_player(
     await db.flush()
 
 
-@router.delete("/{player_id}/follow", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{player_id}/follow", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
 async def unfollow_player(
     player_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
@@ -451,7 +451,7 @@ async def submit_peer_review(
     return PeerReviewOut.model_validate(review)
 
 
-@router.post("/reviews/{review_id}/confirm", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/reviews/{review_id}/confirm", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
 async def confirm_peer_review(review_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     raise NotImplementedError
 

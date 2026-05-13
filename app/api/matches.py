@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from geoalchemy2 import Geography
 from sqlalchemy import cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -124,7 +124,7 @@ async def get_match(
     return MatchOut.model_validate(await _get_match_or_404(match_id, db))
 
 
-@router.post("/{match_id}/join", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/{match_id}/join", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
 async def join_match(
     match_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
@@ -172,7 +172,7 @@ async def join_match(
     await db.commit()
 
 
-@router.delete("/{match_id}/leave", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{match_id}/leave", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
 async def leave_match(
     match_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
@@ -232,7 +232,7 @@ async def submit_result(
     return MatchOut.model_validate(result.scalar_one())
 
 
-@router.post("/{match_id}/result/confirm", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/{match_id}/result/confirm", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
 async def confirm_result(
     match_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
