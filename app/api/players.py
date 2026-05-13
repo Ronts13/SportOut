@@ -321,7 +321,7 @@ async def get_player_highlights(
     raise NotImplementedError
 
 
-@router.post("/{player_id}/follow", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
+@router.post("/{player_id}/follow", status_code=status.HTTP_204_NO_CONTENT, response_class=Response, response_model=None)
 async def follow_player(
     player_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
@@ -349,7 +349,7 @@ async def follow_player(
     await db.flush()
 
 
-@router.delete("/{player_id}/follow", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
+@router.delete("/{player_id}/follow", status_code=status.HTTP_204_NO_CONTENT, response_class=Response, response_model=None)
 async def unfollow_player(
     player_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
@@ -451,7 +451,7 @@ async def submit_peer_review(
     return PeerReviewOut.model_validate(review)
 
 
-@router.post("/reviews/{review_id}/confirm", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
+@router.post("/reviews/{review_id}/confirm", status_code=status.HTTP_204_NO_CONTENT, response_class=Response, response_model=None)
 async def confirm_peer_review(review_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     raise NotImplementedError
 
