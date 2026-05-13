@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-seed_db.py — Populates the SportOut database with realistic test data.
+seed_db.py — Populates the SportOut database with Football-focused test data.
 
 Run from repo root:
     python seed_db.py            # insert if DB is empty (idempotent)
@@ -8,6 +8,8 @@ Run from repo root:
 
 Seed accounts (all share the same password):
     Password: SportOut123!
+
+All players appear on the Football (soccer) leaderboard by default.
 """
 from __future__ import annotations
 
@@ -16,7 +18,6 @@ import asyncio
 import sys
 from datetime import date, datetime, time as dtime, timedelta, timezone
 
-# ── Allow imports from the project root ──────────────────────────────────────
 sys.path.insert(0, ".")
 
 from geoalchemy2.elements import WKTElement
@@ -40,74 +41,57 @@ from app.models.user import User
 _PW = _bcrypt.hashpw(b"SportOut123!", _bcrypt.gensalt()).decode()
 
 # (display_name, username, email, city, dob_year, [(sport, rating, wins, games)])
+# Primary sport is soccer for all players. Ratings map to display scale 40-95.
 PLAYERS: list[tuple] = [
-    ("Ron Ben-David",   "ron_bd",    "ron@seed.sportout.test",    "Tel Aviv",  1998, [("padel", 1420.0, 38, 42), ("tennis", 1380.0, 30, 38)]),
-    ("Kobi Bar",        "kobi_bar",  "kobi@seed.sportout.test",   "Tel Aviv",  1995, [("padel", 1350.0, 31, 38)]),
-    ("Lior Khaytov",    "lior_kh",   "lior.kh@seed.sportout.test","Tel Aviv",  2000, [("padel", 1280.0, 28, 36), ("soccer", 1190.0, 22, 30)]),
-    ("Liran Malki",     "liran_m",   "liran@seed.sportout.test",  "Tel Aviv",  1997, [("padel", 1210.0, 22, 32), ("basketball", 1150.0, 18, 28)]),
-    ("Ofir Tuti",       "ofir_t",    "ofir@seed.sportout.test",   "Tel Aviv",  1999, [("tennis", 1340.0, 25, 34), ("padel", 1170.0, 18, 28)]),
-    ("Dan Haim Lee",    "dan_hl",    "dan@seed.sportout.test",    "Tel Aviv",  1996, [("tennis", 1260.0, 15, 24)]),
-    ("Ron Tsemakhman",  "ron_ts",    "ron.ts@seed.sportout.test", "Tel Aviv",  2001, [("padel", 1150.0, 12, 22), ("soccer", 1240.0, 20, 26)]),
-    ("Aviram Shuster",  "aviram_s",  "aviram@seed.sportout.test", "Ramat Gan", 1993, [("tennis", 1180.0, 9,  20), ("basketball", 1310.0, 29, 36)]),
-    ("Tal Peretz",      "tal_p",     "tal@seed.sportout.test",    "Tel Aviv",  1994, [("soccer", 1450.0, 40, 45), ("padel", 980.0, 8, 18)]),
-    ("Noa Cohen",       "noa_c",     "noa@seed.sportout.test",    "Tel Aviv",  2002, [("padel", 1360.0, 33, 40)]),
-    ("Itai Friedman",   "itai_f",    "itai@seed.sportout.test",   "Herzliya",  1992, [("basketball", 1420.0, 36, 42), ("soccer", 1100.0, 14, 24)]),
-    ("Mor Katz",        "mor_k",     "mor@seed.sportout.test",    "Tel Aviv",  2003, [("tennis", 1120.0, 10, 22)]),
-    ("Yonatan Levy",    "yoni_l",    "yoni@seed.sportout.test",   "Tel Aviv",  1999, [("soccer", 1280.0, 25, 34)]),
-    ("Shira Dagan",     "shira_d",   "shira@seed.sportout.test",  "Tel Aviv",  2000, [("padel", 1310.0, 30, 38), ("tennis", 1200.0, 16, 26)]),
-    ("Amit Grossman",   "amit_g",    "amit@seed.sportout.test",   "Rishon",    1991, [("basketball", 1380.0, 34, 40)]),
-    ("Guy Shachar",     "guy_sh",    "guy@seed.sportout.test",    "Tel Aviv",  1998, [("soccer", 1180.0, 18, 30), ("padel", 1050.0, 10, 20)]),
-    ("Mia Rosen",       "mia_r",     "mia@seed.sportout.test",    "Tel Aviv",  2001, [("tennis", 1410.0, 38, 44)]),
-    ("Omer Ben-Ami",    "omer_ba",   "omer@seed.sportout.test",   "Tel Aviv",  1997, [("basketball", 1240.0, 22, 34), ("soccer", 1320.0, 28, 38)]),
+    # ── Elite tier (display 75+) ──────────────────────────────────────────
+    ("Tal Peretz",      "tal_p",    "tal@seed.sportout.test",    "Tel Aviv",  1994,
+     [("soccer", 1450.0, 40, 45)]),
+    ("Omer Ben-Ami",    "omer_ba",  "omer@seed.sportout.test",   "Tel Aviv",  1997,
+     [("soccer", 1380.0, 35, 43)]),
+    ("Itai Friedman",   "itai_f",  "itai@seed.sportout.test",   "Herzliya",  1992,
+     [("soccer", 1340.0, 30, 40)]),
+    ("Yonatan Levy",    "yoni_l",   "yoni@seed.sportout.test",   "Tel Aviv",  1999,
+     [("soccer", 1310.0, 28, 38)]),
+
+    # ── Gold tier (display 65-74) ─────────────────────────────────────────
+    ("Ron Tsemakhman",  "ron_ts",   "ron.ts@seed.sportout.test", "Tel Aviv",  2001,
+     [("soccer", 1260.0, 24, 34)]),
+    ("Lior Khaytov",    "lior_kh",  "lior@seed.sportout.test",   "Tel Aviv",  2000,
+     [("soccer", 1220.0, 20, 32)]),
+    ("Guy Shachar",     "guy_sh",   "guy@seed.sportout.test",    "Tel Aviv",  1998,
+     [("soccer", 1190.0, 18, 30)]),
+    ("Aviram Shuster",  "aviram_s", "aviram@seed.sportout.test", "Ramat Gan", 1993,
+     [("soccer", 1160.0, 16, 28)]),
+
+    # ── Silver tier (display 55-64) ───────────────────────────────────────
+    ("Shira Dagan",     "shira_d",  "shira@seed.sportout.test",  "Tel Aviv",  2000,
+     [("soccer", 1120.0, 14, 26)]),
+    ("Mor Katz",        "mor_k",    "mor@seed.sportout.test",    "Tel Aviv",  2003,
+     [("soccer", 1090.0, 11, 24)]),
+    ("Dan Haim Lee",    "dan_hl",   "dan@seed.sportout.test",    "Tel Aviv",  1996,
+     [("soccer", 1060.0, 9, 22)]),
+    ("Amit Grossman",   "amit_g",   "amit@seed.sportout.test",   "Rishon",    1991,
+     [("soccer", 1030.0, 7, 20)]),
+
+    # ── Bronze tier (display 40-54) ───────────────────────────────────────
+    ("Noa Cohen",       "noa_c",    "noa@seed.sportout.test",    "Tel Aviv",  2002,
+     [("soccer", 980.0,  5, 18)]),
+    ("Liran Malki",     "liran_m",  "liran@seed.sportout.test",  "Tel Aviv",  1997,
+     [("soccer", 950.0,  3, 16)]),
+    ("Mia Rosen",       "mia_r",    "mia@seed.sportout.test",    "Tel Aviv",  2001,
+     [("soccer", 920.0,  2, 14)]),
+    ("Ron Ben-David",   "ron_bd",   "ron@seed.sportout.test",    "Tel Aviv",  1998,
+     [("soccer", 900.0,  1, 12)]),
+
+    # ── Non-soccer players (variety) ─────────────────────────────────────
+    ("Kobi Bar",        "kobi_bar", "kobi@seed.sportout.test",   "Tel Aviv",  1995,
+     [("padel", 1350.0, 31, 38), ("soccer", 1050.0, 8, 18)]),
+    ("Ofir Tuti",       "ofir_t",   "ofir@seed.sportout.test",   "Tel Aviv",  1999,
+     [("basketball", 1340.0, 25, 34), ("soccer", 970.0, 4, 16)]),
 ]
 
-# (name, street, city, lat, lon, sports_supported, opens, closes, operating_days, amenities, courts)
-# courts: (name, sport, surface, indoor, max_capacity, lighting)
+# (name, street, city, lat, lon, sports, opens, closes, operating_days, amenities, courts)
 FACILITIES: list[dict] = [
-    {
-        "name": "Sportek Tel Aviv",
-        "street": "Rokach Blvd 1",
-        "city": "Tel Aviv",
-        "lat": 32.0856, "lon": 34.7916,
-        "sports": ["padel", "tennis"],
-        "opens": (7, 0), "closes": (23, 0),
-        "days": [0, 1, 2, 3, 4, 5, 6],
-        "amenities": {"parking": True, "showers": True, "cafe": True},
-        "courts": [
-            ("Padel Court 1", "padel",  "synthetic_grass", False, 4,  True),
-            ("Padel Court 2", "padel",  "synthetic_grass", False, 4,  True),
-            ("Tennis Court A","tennis", "hardwood",        False, 4,  True),
-        ],
-    },
-    {
-        "name": "Dubnov Park Courts",
-        "street": "Dubnov St 12",
-        "city": "Tel Aviv",
-        "lat": 32.0801, "lon": 34.7793,
-        "sports": ["tennis"],
-        "opens": (6, 0), "closes": (22, 0),
-        "days": [0, 1, 2, 3, 4, 5, 6],
-        "amenities": {"parking": False, "showers": False},
-        "courts": [
-            ("Tennis Court 1", "tennis", "concrete", False, 4, True),
-            ("Tennis Court 2", "tennis", "concrete", False, 4, False),
-        ],
-    },
-    {
-        "name": "Padel Expo Tel Aviv",
-        "street": "HaMasger St 60",
-        "city": "Tel Aviv",
-        "lat": 32.0740, "lon": 34.7960,
-        "sports": ["padel"],
-        "opens": (8, 0), "closes": (22, 0),
-        "days": [0, 1, 2, 3, 4],
-        "amenities": {"parking": True, "showers": True, "pro_shop": True},
-        "courts": [
-            ("Arena Court 1", "padel", "synthetic_grass", True, 4, True),
-            ("Arena Court 2", "padel", "synthetic_grass", True, 4, True),
-            ("Arena Court 3", "padel", "synthetic_grass", True, 4, True),
-        ],
-    },
     {
         "name": "Bloomfield Stadium Area",
         "street": "Efal St 2, Jaffa",
@@ -133,8 +117,51 @@ FACILITIES: list[dict] = [
         "amenities": {"parking": True, "water_fountain": True},
         "courts": [
             ("Basketball Court 1", "basketball", "asphalt",  False, 10, True),
-            ("Basketball Court 2", "basketball", "concrete", False, 10, False),
             ("5-a-side Pitch",     "soccer",     "asphalt",  False, 10, True),
+            ("7-a-side Pitch",     "soccer",     "synthetic_grass", False, 14, True),
+        ],
+    },
+    {
+        "name": "Sportek Tel Aviv",
+        "street": "Rokach Blvd 1",
+        "city": "Tel Aviv",
+        "lat": 32.0856, "lon": 34.7916,
+        "sports": ["padel", "tennis", "soccer"],
+        "opens": (7, 0), "closes": (23, 0),
+        "days": [0, 1, 2, 3, 4, 5, 6],
+        "amenities": {"parking": True, "showers": True, "cafe": True},
+        "courts": [
+            ("Padel Court 1",    "padel",  "synthetic_grass", False, 4,  True),
+            ("Padel Court 2",    "padel",  "synthetic_grass", False, 4,  True),
+            ("Football Cage",   "soccer", "synthetic_grass", True,  10, True),
+        ],
+    },
+    {
+        "name": "Wolfson Stadium Pitches",
+        "street": "Wolfson St 1, Holon",
+        "city": "Holon",
+        "lat": 32.0099, "lon": 34.7875,
+        "sports": ["soccer"],
+        "opens": (8, 0), "closes": (22, 0),
+        "days": [0, 1, 2, 3, 4, 5, 6],
+        "amenities": {"parking": True, "showers": True},
+        "courts": [
+            ("Main Pitch",   "soccer", "natural_grass",    False, 22, True),
+            ("Side Pitch 1", "soccer", "synthetic_grass",  False, 14, True),
+        ],
+    },
+    {
+        "name": "Ramat Gan National Park Courts",
+        "street": "Abba Hillel 25",
+        "city": "Ramat Gan",
+        "lat": 32.0833, "lon": 34.8167,
+        "sports": ["soccer", "basketball"],
+        "opens": (6, 0), "closes": (21, 0),
+        "days": [0, 1, 2, 3, 4, 5, 6],
+        "amenities": {"water_fountain": True},
+        "courts": [
+            ("Football Court A", "soccer",     "asphalt", False, 10, True),
+            ("Basketball Court", "basketball", "asphalt", False, 10, True),
         ],
     },
 ]
@@ -145,7 +172,6 @@ FACILITIES: list[dict] = [
 # ---------------------------------------------------------------------------
 
 def _point(lon: float, lat: float) -> WKTElement:
-    """WKT geometry point in WGS84 (lon first — PostGIS convention)."""
     return WKTElement(f"POINT({lon} {lat})", srid=4326)
 
 
@@ -167,7 +193,7 @@ async def _seed(reset: bool) -> None:
 
         # ── Idempotency check / reset ─────────────────────────────────────
         existing = await db.execute(
-            select(User).where(User.email == "ron@seed.sportout.test").limit(1)
+            select(User).where(User.email == "tal@seed.sportout.test").limit(1)
         )
         if existing.scalar_one_or_none() is not None:
             if not reset:
@@ -175,7 +201,6 @@ async def _seed(reset: bool) -> None:
                 print("Run with --reset to truncate all tables and re-seed.")
                 return
             print("Truncating all tables...")
-            # TRUNCATE with CASCADE drops dependent rows across all tables.
             await db.execute(text("TRUNCATE TABLE users, facilities, matches CASCADE"))
             await db.commit()
             print("Done.\n")
@@ -233,10 +258,10 @@ async def _seed(reset: bool) -> None:
                 is_verified=True,
             )
             db.add(user)
-            await db.flush()  # get user.id
+            await db.flush()
 
             player = Player(
-                id=user.id,  # Player shares PK with User
+                id=user.id,
                 display_name=name,
                 username=username,
                 city=city,
@@ -244,7 +269,7 @@ async def _seed(reset: bool) -> None:
                 card_is_public=True,
             )
             db.add(player)
-            await db.flush()  # get player.id
+            await db.flush()
 
             for sport, rating, wins, games in sports:
                 db.add(SportProfile(
@@ -261,13 +286,12 @@ async def _seed(reset: bool) -> None:
         sport_profile_count = sum(len(p[5]) for p in PLAYERS)
         print(f"  {len(player_rows)} players, {sport_profile_count} sport profiles")
 
-        # Convenience: grab player objects by index for rosters
         players_list = list(player_rows.values())
-        sportek   = facility_rows["Sportek Tel Aviv"]
-        dubnov    = facility_rows["Dubnov Park Courts"]
-        padel_exp = facility_rows["Padel Expo Tel Aviv"]
         bloom     = facility_rows["Bloomfield Stadium Area"]
         hayarkon  = facility_rows["Park Hayarkon Sports Complex"]
+        sportek   = facility_rows["Sportek Tel Aviv"]
+        wolfson   = facility_rows["Wolfson Stadium Pitches"]
+        ramatgan  = facility_rows["Ramat Gan National Park Courts"]
 
         # ── 3. Matches ────────────────────────────────────────────────────
         print("Seeding matches...")
@@ -286,87 +310,102 @@ async def _seed(reset: bool) -> None:
                 attended=True,
             ))
 
-        # M1 — Open padel at Sportek (tomorrow evening)
+        # M1 — Open 5v5 at Bloomfield (tomorrow evening)  ← hero match
         m1 = _match(
-            sport="padel",
-            facility_id=sportek.id,
-            created_by_id=players_list[0].id,
-            scheduled_at=_in_days(1, 18),
-            format=MatchFormat.PICKUP.value,
-            status="open",
-            max_players=4,
-            min_rating=1100.0,
-            max_rating=1500.0,
-        )
-        await db.flush()
-        _roster(m1, players_list[0])   # Ron Ben-David
-        _roster(m1, players_list[1])   # Kobi Bar
-
-        # M2 — Open tennis at Dubnov (tomorrow)
-        m2 = _match(
-            sport="tennis",
-            facility_id=dubnov.id,
-            created_by_id=players_list[4].id,
+            sport="soccer",
+            facility_id=bloom.id,
+            created_by_id=players_list[0].id,   # Tal Peretz
             scheduled_at=_in_days(1, 19),
             format=MatchFormat.PICKUP.value,
             status="open",
-            max_players=4,
-        )
-        await db.flush()
-        _roster(m2, players_list[4])   # Ofir Tuti
-        _roster(m2, players_list[5])   # Dan Haim Lee
-
-        # M3 — Open padel at Padel Expo with bracket (3 days out)
-        m3 = _match(
-            sport="padel",
-            facility_id=padel_exp.id,
-            created_by_id=players_list[9].id,  # Noa Cohen
-            scheduled_at=_in_days(3, 17),
-            format=MatchFormat.SCRIMMAGE.value,
-            status="open",
-            max_players=4,
-            min_rating=1200.0,
+            max_players=10,
+            min_rating=1000.0,
             max_rating=1500.0,
         )
         await db.flush()
-        _roster(m3, players_list[9])
+        _roster(m1, players_list[0])   # Tal Peretz
+        _roster(m1, players_list[1])   # Omer Ben-Ami
+        _roster(m1, players_list[3])   # Yonatan Levy
 
-        # M4 — Open basketball at Hayarkon (tomorrow)
-        m4 = _match(
-            sport="basketball",
+        # M2 — Open 5-a-side at Hayarkon (tomorrow)
+        m2 = _match(
+            sport="soccer",
             facility_id=hayarkon.id,
-            created_by_id=players_list[10].id,  # Itai Friedman
-            scheduled_at=_in_days(1, 17),
+            created_by_id=players_list[2].id,   # Itai Friedman
+            scheduled_at=_in_days(1, 18),
             format=MatchFormat.PICKUP.value,
             status="open",
             max_players=10,
         )
         await db.flush()
-        _roster(m4, players_list[10])  # Itai Friedman
-        _roster(m4, players_list[7])   # Aviram Shuster
-        _roster(m4, players_list[14])  # Amit Grossman
+        _roster(m2, players_list[2])   # Itai Friedman
+        _roster(m2, players_list[4])   # Ron Tsemakhman
+        _roster(m2, players_list[7])   # Aviram Shuster
 
-        # M5 — Open soccer at Bloomfield (day after tomorrow)
+        # M3 — Elite bracket at Bloomfield (3 days out)
+        m3 = _match(
+            sport="soccer",
+            facility_id=bloom.id,
+            created_by_id=players_list[1].id,   # Omer Ben-Ami
+            scheduled_at=_in_days(3, 20),
+            format=MatchFormat.SCRIMMAGE.value,
+            status="open",
+            max_players=10,
+            min_rating=1200.0,
+            max_rating=1600.0,
+        )
+        await db.flush()
+        _roster(m3, players_list[1])   # Omer Ben-Ami
+        _roster(m3, players_list[2])   # Itai Friedman
+
+        # M4 — Casual 5v5 at Hayarkon (4 days out) — no bracket
+        m4 = _match(
+            sport="soccer",
+            facility_id=hayarkon.id,
+            created_by_id=players_list[8].id,   # Shira Dagan
+            scheduled_at=_in_days(4, 17),
+            format=MatchFormat.PICKUP.value,
+            status="open",
+            max_players=10,
+        )
+        await db.flush()
+        _roster(m4, players_list[8])   # Shira Dagan
+        _roster(m4, players_list[9])   # Mor Katz
+
+        # M5 — Gold bracket at Wolfson (5 days out)
         m5 = _match(
             sport="soccer",
-            facility_id=bloom.id,
-            created_by_id=players_list[8].id,  # Tal Peretz
-            scheduled_at=_in_days(2, 20),
+            facility_id=wolfson.id,
+            created_by_id=players_list[5].id,   # Lior Khaytov
+            scheduled_at=_in_days(5, 19),
             format=MatchFormat.PICKUP.value,
             status="open",
-            max_players=10,
+            max_players=14,
+            min_rating=1100.0,
+            max_rating=1400.0,
         )
         await db.flush()
-        _roster(m5, players_list[8])   # Tal Peretz
-        _roster(m5, players_list[12])  # Yonatan Levy
-        _roster(m5, players_list[17])  # Omer Ben-Ami
+        _roster(m5, players_list[5])   # Lior Khaytov
+        _roster(m5, players_list[6])   # Guy Shachar
 
-        # M6 — Completed soccer at Bloomfield (yesterday)
-        # Home: Tal Peretz + Ron Tsemakhman   Away: Yonatan Levy + Omer Ben-Ami
+        # M6 — Cage match at Sportek (tomorrow, small format)
         m6 = _match(
             sport="soccer",
+            facility_id=sportek.id,
+            created_by_id=players_list[3].id,   # Yonatan Levy
+            scheduled_at=_in_days(1, 20),
+            format=MatchFormat.PICKUP.value,
+            status="open",
+            max_players=6,
+        )
+        await db.flush()
+        _roster(m6, players_list[3])   # Yonatan Levy
+
+        # M7 — Completed match at Bloomfield (yesterday) — 3-1 home win
+        m7 = _match(
+            sport="soccer",
             facility_id=bloom.id,
-            created_by_id=players_list[8].id,
+            created_by_id=players_list[0].id,
             scheduled_at=_in_days(-1, 18),
             format=MatchFormat.SCRIMMAGE.value,
             status="completed",
@@ -376,20 +415,35 @@ async def _seed(reset: bool) -> None:
             result_confirmed_at=_in_days(-1, 21),
         )
         await db.flush()
-        _roster(m6, players_list[8],  "home")  # Tal Peretz
-        _roster(m6, players_list[6],  "home")  # Ron Tsemakhman
-        _roster(m6, players_list[12], "away")  # Yonatan Levy
-        _roster(m6, players_list[17], "away")  # Omer Ben-Ami
+        _roster(m7, players_list[0],  "home")  # Tal Peretz
+        _roster(m7, players_list[4],  "home")  # Ron Tsemakhman
+        _roster(m7, players_list[3],  "away")  # Yonatan Levy
+        _roster(m7, players_list[1],  "away")  # Omer Ben-Ami
+
+        # M8 — Basketball at Hayarkon (tomorrow, variety)
+        m8 = _match(
+            sport="basketball",
+            facility_id=hayarkon.id,
+            created_by_id=players_list[17].id,  # Ofir Tuti
+            scheduled_at=_in_days(2, 17),
+            format=MatchFormat.PICKUP.value,
+            status="open",
+            max_players=10,
+        )
+        await db.flush()
+        _roster(m8, players_list[17])  # Ofir Tuti
 
         await db.commit()
-        print("  6 matches created (5 open, 1 completed 3-1 soccer)")
+        print("  8 matches created (7 soccer open/completed + 1 basketball)")
 
         print("\nDone! Seed summary:")
-        print(f"  Players  : {len(PLAYERS)}")
-        print(f"  Profiles : {sport_profile_count} (across padel, tennis, soccer, basketball)")
-        print(f"  Facilities: {len(FACILITIES)} Tel Aviv venues")
-        print(f"  Matches  : 6 (5 open, 1 completed)")
-        print(f"\n  Login with any @seed.sportout.test email, password: SportOut123!")
+        print(f"  Players   : {len(PLAYERS)}")
+        print(f"  Profiles  : {sport_profile_count}")
+        print(f"  Facilities: {len(FACILITIES)}")
+        print(f"  Matches   : 8 (7 soccer, 1 basketball)")
+        print(f"\n  Login with any @seed.sportout.test email")
+        print(f"  Password : SportOut123!")
+        print(f"\n  Top player: tal@seed.sportout.test (rating 1450, display ~82)")
 
 
 # ---------------------------------------------------------------------------
@@ -397,12 +451,9 @@ async def _seed(reset: bool) -> None:
 # ---------------------------------------------------------------------------
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Seed the SportOut database with test data.")
-    parser.add_argument(
-        "--reset",
-        action="store_true",
-        help="TRUNCATE all tables before seeding (destructive — dev only).",
-    )
+    parser = argparse.ArgumentParser(description="Seed the SportOut database.")
+    parser.add_argument("--reset", action="store_true",
+                        help="TRUNCATE all tables before seeding (destructive — dev only).")
     args = parser.parse_args()
 
     if args.reset:

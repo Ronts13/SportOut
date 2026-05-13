@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
 
@@ -47,6 +47,25 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> TokenData:
         raise credentials_exc
 
     return TokenData(user_id=user_id, role=role)
+
+
+def get_optional_user(request: Request) -> TokenData | None:
+    """Like get_current_user but returns None if no token is present.
+    Used for endpoints that are public but can be enriched when logged in.
+    """
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        return None
+    token = auth[len("Bearer "):]
+    try:
+        payload = decode_access_token(token)
+        user_id = payload.get("sub")
+        role = payload.get("role")
+        if user_id and role:
+            return TokenData(user_id=user_id, role=role)
+    except Exception:
+        pass
+    return None
 
 
 # ---------------------------------------------------------------------------

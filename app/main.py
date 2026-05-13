@@ -91,3 +91,7 @@ async def health(db: AsyncSession = Depends(get_db)) -> dict:
     except Exception as exc:
         db_status = f"ERROR: {exc}"
     return {"status": "ok", "version": settings.APP_VERSION, "db": db_status}
+
+
+from fastapi.staticfiles import StaticFiles  # noqa: E402
+app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")

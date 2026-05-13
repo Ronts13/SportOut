@@ -9,7 +9,7 @@ from sqlalchemy import cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.api.dependencies import TokenData, get_current_user
+from app.api.dependencies import TokenData, get_current_user, get_optional_user
 from app.core.database import get_db
 from app.core.enums import Sport
 from app.models.facility import Facility
@@ -78,7 +78,7 @@ async def list_matches(
     max_rating: float | None = Query(None, ge=0),
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    current_user: TokenData = Depends(get_current_user),
+    current_user: TokenData | None = Depends(get_optional_user),
 ) -> list[MatchOut]:
     stmt = (
         select(Match)
@@ -289,7 +289,11 @@ async def confirm_result(
         await db.flush()
         # Late import keeps module-level import graph clean and avoids circular deps.
         from app.workers.ratings import recalculate_match_ratings  # noqa: PLC0415
-        recalculate_match_ratings.delay(str(match_id))
+        try:
+            recalculate_match_ratings.delay(str(match_id))
+        except Exception as exc:  # Redis not available — ratings stay queued
+            import logging
+            logging.getLogger("sportout").warning("Rating task could not be enqueued: %s", exc)
 
     await db.commit()
 

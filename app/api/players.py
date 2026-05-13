@@ -171,9 +171,18 @@ async def register_player(payload: PlayerCreate, db: AsyncSession = Depends(get_
         db.add(player)
         print("DEBUG: About to flush to DB", flush=True)
         await db.flush()
-        print("DEBUG: Flush done, refreshing player", flush=True)
+
+        db.add(SportProfile(
+            player_id=shared_id,
+            sport="soccer",
+            current_rating=1000.0,
+            career_wins=0,
+            career_games=0,
+            is_public=True,
+        ))
+        await db.commit()
+        print("DEBUG: Player + Soccer SportProfile created OK", flush=True)
         await db.refresh(player)
-        print("DEBUG: Player created OK", flush=True)
         return PlayerProfileOut.model_validate(player)
     except HTTPException:
         raise

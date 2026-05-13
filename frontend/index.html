@@ -806,10 +806,10 @@
 
       <!-- Sport filter — 8 chips, scrollable -->
       <div class="flex gap-2 overflow-x-auto no-scrollbar pb-1 mb-2">
-        <button class="sport-chip active" data-sport="all"         onclick="filterBySport('all')">All Sports</button>
+        <button class="sport-chip"        data-sport="all"         onclick="filterBySport('all')">All Sports</button>
         <button class="sport-chip"        data-sport="padel"       onclick="filterBySport('padel')">Padel</button>
         <button class="sport-chip"        data-sport="tennis"      onclick="filterBySport('tennis')">Tennis</button>
-        <button class="sport-chip"        data-sport="football"    onclick="filterBySport('football')">Football</button>
+        <button class="sport-chip active" data-sport="football"    onclick="filterBySport('football')">Football</button>
         <button class="sport-chip"        data-sport="basketball"  onclick="filterBySport('basketball')">Basketball</button>
         <button class="sport-chip"        data-sport="tabletennis" onclick="filterBySport('tabletennis')">Table Tennis</button>
         <button class="sport-chip"        data-sport="footvolley"  onclick="filterBySport('footvolley')">Footvolley</button>
@@ -1410,9 +1410,9 @@
       <div>
         <p class="text-white/35 text-[10px] font-semibold uppercase tracking-widest mb-3">Sport</p>
         <div class="flex gap-2">
-          <button class="cm-sport-btn active" onclick="selectCmSport(this,'Padel')">🎾 Padel</button>
+          <button class="cm-sport-btn"        onclick="selectCmSport(this,'Padel')">🎾 Padel</button>
           <button class="cm-sport-btn"        onclick="selectCmSport(this,'Tennis')">🎾 Tennis</button>
-          <button class="cm-sport-btn"        onclick="selectCmSport(this,'Football')">⚽ Football</button>
+          <button class="cm-sport-btn active" onclick="selectCmSport(this,'Football')">⚽ Football</button>
         </div>
         <div class="flex gap-2 mt-2">
           <button class="cm-sport-btn" onclick="selectCmSport(this,'Basketball')">🏀 Basketball</button>
@@ -1425,9 +1425,10 @@
       <div>
         <p class="text-white/35 text-[10px] font-semibold uppercase tracking-widest mb-3">Venue</p>
         <select class="cm-input">
-          <option value="0">Sportek Tel Aviv — Padel · 1.2 km</option>
-          <option value="1">Dubnov Park Courts — Tennis · 2.4 km</option>
-          <option value="2">Padel Expo Tel Aviv — Padel · 5.1 km</option>
+          <option value="0">Bloomfield Stadium — Football · 1.8 km</option>
+          <option value="1">Hayarkon Sports Complex — Football · 3.2 km</option>
+          <option value="2">Sportek Tel Aviv — Football Cage · 2.1 km</option>
+          <option value="3">Wolfson Stadium Pitches — Football · 5.4 km</option>
         </select>
       </div>
 
@@ -1435,8 +1436,8 @@
       <div>
         <p class="text-white/35 text-[10px] font-semibold uppercase tracking-widest mb-3">Date &amp; Time</p>
         <div class="flex gap-2">
-          <input type="date"  class="cm-input" value="2026-04-18" />
-          <input type="time"  class="cm-input" value="19:00" />
+          <input id="cm-date" type="date"  class="cm-input" value="2026-05-14" />
+          <input id="cm-time" type="time"  class="cm-input" value="19:00" />
         </div>
       </div>
 
@@ -1445,10 +1446,10 @@
         <p class="text-white/35 text-[10px] font-semibold uppercase tracking-widest mb-3">Format</p>
         <div class="flex gap-2">
           <button class="cm-format-btn"        onclick="selectCmFormat(this,'1v1')">1v1</button>
-          <button class="cm-format-btn active" onclick="selectCmFormat(this,'2v2')">2v2</button>
+          <button class="cm-format-btn"        onclick="selectCmFormat(this,'2v2')">2v2</button>
           <button class="cm-format-btn"        onclick="selectCmFormat(this,'3v3')">3v3</button>
           <button class="cm-format-btn"        onclick="selectCmFormat(this,'4v4')">4v4</button>
-          <button class="cm-format-btn"        onclick="selectCmFormat(this,'5v5')">5v5</button>
+          <button class="cm-format-btn active" onclick="selectCmFormat(this,'5v5')">5v5</button>
         </div>
       </div>
 
@@ -2449,7 +2450,7 @@
 
 
     /* ── Leaderboard filter state ── */
-    let _activeFilters = { sport: 'all', region: 'all', following: false };
+    let _activeFilters = { sport: 'football', region: 'all', following: false };
 
     /* ── Unified leaderboard renderer — sequential re-indexing on every filter ── */
     function filterLeaderboard(opts) {
@@ -3013,9 +3014,45 @@
       btn.classList.add('active');
     }
 
-    function publishMatch() {
-      hideCreateMatch();
-      showToast('Match published! Players will be notified');
+    async function publishMatch() {
+      if (!_jwt) { showLoginModal(); return; }
+      const sportBtn = document.querySelector('.cm-sport-btn.active');
+      const sportRaw = sportBtn ? sportBtn.textContent.trim().replace(/^[^\w]+/, '').toLowerCase() : 'football';
+      const sportMap = { padel: 'padel', tennis: 'tennis', football: 'soccer', basketball: 'basketball',
+                         'table tennis': 'padel', boxing: 'padel' };
+      const apiSport  = sportMap[sportRaw] || 'soccer';
+      const fmtBtn    = document.querySelector('.cm-format-btn.active');
+      const fmtText   = fmtBtn ? fmtBtn.textContent.trim() : '5v5';
+      const maxPlayers = parseInt(fmtText.split('v')[0]) * 2 || 10;
+      const dateVal   = document.getElementById('cm-date')?.value;
+      const timeVal   = document.getElementById('cm-time')?.value || '19:00';
+      const iso       = dateVal ? `${dateVal}T${timeVal}:00` : new Date(Date.now() + 86400000).toISOString();
+      const publishBtn = document.querySelector('[onclick="publishMatch()"]');
+      if (publishBtn) { publishBtn.disabled = true; publishBtn.textContent = 'Publishing…'; }
+      try {
+        await _apiPost('/api/v1/matches/', {
+          sport: apiSport, format: 'pickup',
+          scheduled_at: iso, max_players: maxPlayers,
+        });
+        hideCreateMatch();
+        showToast('Match published! Players will be notified');
+        fetchAndRenderMatches();
+      } catch (err) {
+        showToast(err.message || 'Could not publish match — are you signed in?');
+      } finally {
+        if (publishBtn) { publishBtn.disabled = false; publishBtn.textContent = 'Publish Match'; }
+      }
+    }
+
+    async function joinApiMatch(matchId) {
+      if (!_jwt) { showLoginModal(); return; }
+      try {
+        await _apiPost(`/api/v1/matches/${matchId}/join`, {});
+        showToast("You're in — see you on court!");
+        fetchAndRenderMatches();
+      } catch (err) {
+        showToast(err.message || 'Could not join match');
+      }
     }
 
 
@@ -3566,6 +3603,12 @@
 
     // ── Leaderboard API ─────────────────────────────────────────────────
     const _API_SPORT_MAP = { padel: 'padel', tennis: 'tennis', football: 'soccer', basketball: 'basketball' };
+
+    function eloToDisplay(elo) {
+      // Map Elo 500-1800 → display scale 40-95 (matches the badge tiers shown in the UI)
+      const clamped = Math.max(500, Math.min(1800, elo || 1000));
+      return Math.round(40 + (clamped - 500) / 1300 * 55);
+    }
     const _apiPlayerCache = new Map();  // uuid → leaderboard entry (for showApiPlayerDetail)
 
     function _toLabel(sport) { return sport.charAt(0).toUpperCase() + sport.slice(1); }
@@ -3624,7 +3667,7 @@
         id:      e.player_id,
         name:    e.display_name,
         initial: e.display_name[0].toUpperCase(),
-        _rating: Math.round(e.current_rating),
+        _rating: eloToDisplay(e.current_rating),
         _sport:  _toLabel(e.sport),
       }));
 
@@ -3695,7 +3738,7 @@
       const cached = _apiPlayerCache.get(playerUuid);
       if (cached) {
         const label = _toLabel(cached.sport);
-        document.getElementById('pd-rating').textContent = Math.round(cached.current_rating);
+        document.getElementById('pd-rating').textContent = eloToDisplay(cached.current_rating);
         document.getElementById('pd-wins').textContent   = cached.wins;
         document.getElementById('pd-losses').textContent = cached.losses;
         if (tabsEl) {
@@ -3738,55 +3781,20 @@
     }
 
     async function fetchApiRankings() {
+      // Default: load the Football leaderboard (the MVP sport)
+      const data = await fetchLeaderboard('football');
+      if (data) { renderApiLeaderboard(data, 'Football'); return; }
+      // Fallback: show generic player list if football leaderboard fails
       const podium    = document.getElementById('rankings-podium');
       const container = document.getElementById('rankings-list');
       const titleEl   = document.getElementById('rankings-title');
-      document.querySelectorAll('.sport-chip').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.sport === 'all');
-      });
-      try {
-        const players = await _apiGet('/api/v1/players/');
-        if (titleEl) titleEl.textContent = 'All Players';
-        if (!players || players.length === 0) {
-          if (podium) podium.style.display = 'none';
-          if (container) container.innerHTML = `
-            <div class="py-10 flex flex-col items-center gap-2">
-              <p class="text-white/30 text-sm font-medium">No players yet</p>
-              <p class="text-white/20 text-xs">Be the first to join!</p>
-            </div>`;
-          return;
-        }
-        const mapped = players.map(p => ({
-          id: p.id, name: p.display_name,
-          initial: p.display_name[0].toUpperCase(), _rating: '—', _sport: 'Player',
-        }));
-        _renderApiPodium(mapped.slice(0, 3));
-        const list = mapped.slice(3);
-        if (container) {
-          container.innerHTML = list.length === 0 ? '' : list.map((p, i) => `
-            <div class="player-row flex items-center gap-3 px-4 py-3 rounded-2xl bg-navy-800 border border-white/5
-                        cursor-pointer hover:border-teal-glow/25 active:scale-[0.98] transition-all"
-                 onclick="showApiPlayerDetail('${p.id}')">
-              <span class="rank-num text-white/25 text-xs w-5 text-center font-mono">${i + 4}</span>
-              <div class="w-8 h-8 rounded-full bg-navy-700 border border-white/10
-                          flex items-center justify-center flex-shrink-0">
-                <span class="text-xs font-bold text-white/50">${p.initial}</span>
-              </div>
-              <div class="flex-1 min-w-0">
-                <p class="text-white/80 text-sm font-semibold truncate">${p.name}</p>
-                <p class="text-white/30 text-xs">${p._sport}</p>
-              </div>
-              <span class="text-teal-glow text-sm font-bold">${p._rating}</span>
-            </div>`).join('');
-        }
-      } catch (err) {
-        console.warn('[SportOut] Rankings fetch failed:', err.message);
-        if (podium) podium.style.display = 'none';
-        if (container) container.innerHTML = `
-          <div class="py-10 flex flex-col items-center gap-2">
-            <p class="text-white/30 text-sm font-medium">Could not load players</p>
-          </div>`;
-      }
+      if (podium) podium.style.display = 'none';
+      if (titleEl) titleEl.textContent = 'Players';
+      if (container) container.innerHTML = `
+        <div class="py-10 flex flex-col items-center gap-2">
+          <p class="text-white/30 text-sm font-medium">Could not load leaderboard</p>
+          <p class="text-white/20 text-xs">Make sure the backend is running</p>
+        </div>`;
     }
 
     async function fetchAndPopulateProfileFromApi() {
@@ -3833,17 +3841,7 @@
       const container = document.getElementById('matches-feed');
       if (!container) return;
       if (!_jwt) {
-        renderMatchesTab();
-        // Append a soft CTA to log in
-        const cta = document.createElement('div');
-        cta.className = 'col-span-2 mt-2 py-3 text-center';
-        cta.innerHTML = `<button onclick="showLoginModal()"
-          class="text-xs text-teal-glow font-semibold border border-teal-glow/25 px-4 py-2 rounded-full
-                 hover:bg-teal-glow/10 transition-colors">
-          Sign in to load live matches
-        </button>`;
-        container.appendChild(cta);
-        return;
+        // Still attempt to fetch and render real matches even for guests
       }
       try {
         const matches = await _apiGet('/api/v1/matches/?limit=20');
@@ -3861,7 +3859,7 @@
           const timeStr = dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           const dateStr = dt.toLocaleDateString([], { month: 'short', day: 'numeric' });
           const bracket = (m.min_rating && m.max_rating)
-            ? `${Math.round(m.min_rating)}–${Math.round(m.max_rating)}`
+            ? `${eloToDisplay(m.min_rating)}–${eloToDisplay(m.max_rating)}`
             : 'Open';
           let badgeCls = missing >= 4 ? 'bg-red-500/20 border border-red-500/40 text-red-500'
                        : missing >= 2 ? 'bg-amber-500/15 border border-amber-400/40 text-amber-400'
@@ -3904,9 +3902,15 @@
               </p>
               <div class="flex items-center justify-between">
                 <div class="flex items-center pl-2">${avatars}${extraEl}</div>
-                <div class="text-center">
-                  <p class="text-teal-glow font-bold text-sm leading-tight tabular-nums">${roster.length}/${m.max_players}</p>
-                  <p class="text-white/30 text-[9px]">Players</p>
+                <div class="flex items-center gap-3">
+                  <div class="text-center">
+                    <p class="text-teal-glow font-bold text-sm leading-tight tabular-nums">${roster.length}/${m.max_players}</p>
+                    <p class="text-white/30 text-[9px]">Players</p>
+                  </div>
+                  ${missing > 0 ? `<button onclick="joinApiMatch('${m.id}')"
+                    class="px-4 py-2 rounded-xl bg-teal-glow/15 border border-teal-glow/40
+                           text-teal-glow font-bold text-xs hover:bg-teal-glow/25 transition-colors
+                           active:scale-95">Join</button>` : `<span class="px-3 py-1 rounded-xl bg-white/5 border border-white/10 text-white/25 text-xs font-bold">Full</span>`}
                 </div>
               </div>
             </div>`;
@@ -3948,7 +3952,7 @@
     });
     validateSessionOnLoad();
     navigateTo(_jwt ? 'feed' : 'landing');
-    if (_jwt) fetchAndRenderMatches();
+    fetchAndRenderMatches();
     fetchApiRankings();
     refreshAuthUI();
     if (_jwt) fetchAndPopulateProfileFromApi();
@@ -4096,7 +4100,7 @@
       </div>
 
       <p id="seed-hint" class="text-white/20 text-[11px] text-center mt-4">
-        Seed account: ron@seed.sportout.test · SportOut123!
+        Demo account: tal@seed.sportout.test · SportOut123!
       </p>
     </div>
   </div>
