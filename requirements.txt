@@ -7,7 +7,7 @@ python-multipart==0.0.9
 sqlalchemy[asyncio]==2.0.36
 asyncpg==0.29.0
 alembic==1.13.3
-geoalchemy2==0.15.2
+geoalchemy2[shapely]==0.15.2
 
 # Pydantic
 pydantic==2.9.2
