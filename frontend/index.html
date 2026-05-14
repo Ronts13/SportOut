@@ -2008,7 +2008,7 @@
 
 
     /* ── Leaflet map data ── */
-    const COURTS = [
+    let COURTS = [
       /* ── Tel Aviv ── */
       {
         name: 'Sportek North Tel Aviv', lat: 32.0856, lng: 34.7916, live: true,
@@ -3379,6 +3379,82 @@
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       return res.json().catch(() => { throw new Error('Invalid server response'); });
     }
+
+    // ── Facilities → COURTS mapping (real DB data + computed/default fields) ──
+    const _SPORT_LABEL = { soccer: 'Football', basketball: 'Basketball', tennis: 'Tennis', padel: 'Padel' };
+    function _hashId(s) {
+      let h = 0;
+      for (let i = 0; i < (s || '').length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+      return Math.abs(h);
+    }
+    function _facilityToCourt(f) {
+      const h = _hashId(f.id);
+      const primary = (f.sports_supported && f.sports_supported[0]) || 'soccer';
+      const sportLabel = _SPORT_LABEL[primary] || primary;
+      const totalCourts = (f.courts || []).length || 1;
+      const openCourts = (f.courts || []).filter(c => c.is_bookable !== false && c.condition !== 'poor').length;
+      const fmtT = t => (t || '').substring(0, 5);
+      const opens = fmtT(f.opens_at);
+      const closes = fmtT(f.closes_at);
+      const openHours = (opens && closes) ? `${opens} – ${closes}` : '—';
+      const crowds = ['Low', 'Medium', 'High'];
+      const live = !!f.is_active && totalCourts > 0;
+      return {
+        id: f.id,
+        name: f.name,
+        lat: f.latitude,
+        lng: f.longitude,
+        live,
+        sport: sportLabel,
+        sports_supported: f.sports_supported || [],
+        price: 'Free',
+        openHours,
+        peakHours: '17:00 – 20:00',
+        lightsOut: closes || 'No lights',
+        lightingHours: closes ? `Until ${closes}` : 'No Lighting',
+        hasShade: !!(f.amenities && f.amenities.shade),
+        crowdLevel: live ? crowds[h % 3] : 'Low',
+        totalCourts,
+        openCourts: live ? Math.max(openCourts, 1) : 0,
+        currentPlayers: live ? (h % 12) + 1 : 0,
+        avgRating: 55 + (h % 35),
+        playersCurrentlyOnCourt: [],
+      };
+    }
+    function _clearCircleMarkers(map) {
+      if (!map) return;
+      const toRemove = [];
+      map.eachLayer(layer => { if (layer instanceof L.CircleMarker) toRemove.push(layer); });
+      toRemove.forEach(layer => map.removeLayer(layer));
+    }
+    function _rerenderCourtsUI() {
+      _clearCircleMarkers(_feedMap);
+      _clearCircleMarkers(_courtsMap);
+      if (_feedMap) addCourtMarkers(_feedMap);
+      if (_courtsMap) addCourtMarkers(_courtsMap);
+      initNearbyCourts();
+      const totalCourts = COURTS.length;
+      const liveCourts = COURTS.filter(c => c.live).length;
+      const liveTxt = liveCourts + ' Courts Live';
+      ['feed-live-count', 'map-live-count'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = liveTxt;
+      });
+      const nearbyLive = document.getElementById('nearby-live-count');
+      if (nearbyLive) nearbyLive.textContent = liveCourts + ' live';
+      const statTotal = document.getElementById('stat-total-courts');
+      if (statTotal) statTotal.textContent = totalCourts;
+    }
+    async function loadFacilitiesFromApi() {
+      try {
+        const data = await _apiGet('/api/v1/facilities/');
+        if (!Array.isArray(data) || data.length === 0) return;
+        COURTS = data.map(_facilityToCourt);
+        _rerenderCourtsUI();
+      } catch (err) {
+        console.warn('[facilities] load failed, keeping mock data:', err);
+      }
+    }
     async function _apiPost(path, body, isForm) {
       const opts = { method: 'POST', headers: { ..._authHeaders() } };
       if (isForm) {
@@ -3958,6 +4034,7 @@
     if (_jwt) fetchAndPopulateProfileFromApi();
     initNearbyCourts();
     fetchPlayerCount();
+    loadFacilitiesFromApi();
 
     /* ── Dynamic global stats ── */
     (function updateDynamicStats() {
